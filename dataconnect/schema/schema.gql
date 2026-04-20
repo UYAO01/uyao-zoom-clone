@@ -1,0 +1,39 @@
+type User @table {
+  displayName: String!
+  email: String!
+  createdAt: Timestamp!
+  photoUrl: String
+  status: String
+}
+
+type Meeting @table {
+  topic: String!
+  startTime: Timestamp!
+  duration: Int!
+  meetingId: String!
+  createdAt: Timestamp!
+  description: String
+  password: String
+  host: User
+}
+
+type Participant @table(key: ["meeting", "user"]) {
+  meeting: Meeting!
+  user: User!
+  joinedAt: Timestamp!
+  leftAt: Timestamp
+}
+
+type Contact @table(key: ["owner", "contact"]) {
+  owner: User!
+  contact: User!
+  createdAt: Timestamp!
+  alias: String
+}
+
+type ChatMessage @table {
+  meeting: Meeting!
+  user: User!
+  messageText: String!
+  timestamp: Timestamp!
+}

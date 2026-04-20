@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Sheria za "posted_jobs"
+    match /posted_jobs/{jobId} {
+      // Mtu yeyote aliyesajiliwa (authenticated) anaweza kusoma kazi zote.
+      allow read: if request.auth != null;
+      
+      // Mtu anaweza kupost kazi mpya ikiwa ame-login na ID yake inalingana na 'createdBy'.
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      
+      // Mtu anaweza ku-update au kufuta kazi ikiwa yeye ndiye aliyeipost.
+      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Sheria za "job_applications"
+    match /job_applications/{applicationId} {
+      // Mtu yeyote aliyesajiliwa anaweza kutuma maombi (ku-create).
+      allow create: if request.auth != null;
+      
+      // Ruhusu kusoma maombi ikiwa:
+      // 1. Mtumiaji ndiye muombaji (applicant)
+      // AU
+      // 2. Mtumiaji ndiye aliyepost kazi husika
+      allow read: if request.auth != null && (
+                  request.auth.uid == resource.data.applicantId ||
+                  (exists(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)) &&
+                   get(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)).data.createdBy == request.auth.uid)
+              );
+      
+      // Ruhusu kusasisha (update) maombi ikiwa mtumiaji ndiye aliyepost kazi husika
+      allow update: if request.auth != null &&
+                    exists(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)) &&
+                    get(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)).data.createdBy == request.auth.uid;
+
+      // Ruhusu kufuta (delete) maombi ikiwa mtumiaji ndiye muombaji au aliyepost kazi
+      allow delete: if request.auth != null && (
+                  request.auth.uid == resource.data.applicantId ||
+                  (exists(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)) &&
+                   get(/databases/$(database)/documents/posted_jobs/$(resource.data.jobId)).data.createdBy == request.auth.uid)
+              );
+    }
+  }
+}

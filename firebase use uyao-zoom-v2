@@ -1,0 +1,28 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Sheria za "posted_jobs"
+    match /posted_jobs/{jobId} {
+      // Mtu yeyote aliyesajiliwa (authenticated) anaweza kusoma kazi zote.
+      allow read: if request.auth != null;
+      
+      // Mtu anaweza kupost kazi mpya ikiwa ame-login na ID yake inalingana na 'createdBy'.
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      
+      // Mtu anaweza ku-update au kufuta kazi ikiwa yeye ndiye aliyeipost.
+      allow update, delete: if request.auth != null && resource.data.createdBy == request.auth.uid;
+    }
+
+    // Sheria za "job_applications"
+    match /job_applications/{applicationId} {
+      // Mtu yeyote aliyesajiliwa anaweza kutuma maombi (ku-create).
+      allow create: if request.auth != null;
+      
+      // Hii ni sheria ya muda: Mtu yeyote aliyesajiliwa anaweza kusoma maombi.
+      // Kwenye app halisi, ungetaka anayesoma awe yule aliyeomba au aliyetuma kazi.
+      allow read: if request.auth != null;
+      allow delete: if request.auth != null; // Ruhusu kufuta kwa ajili ya testing
+    }
+  }
+}
