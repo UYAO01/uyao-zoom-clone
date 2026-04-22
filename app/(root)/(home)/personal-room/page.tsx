@@ -3941,7 +3941,7 @@ const PersonalRoom = () => {
     const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + MANAGEMENT_SLIDES.length) % MANAGEMENT_SLIDES.length);
 
     return (
-       <section className="flex flex-col h-[calc(100vh-140px)] w-full gap-3 text-white overflow-hidden">
+           <section className="flex flex-col h-[calc(100vh-140px)] w-full gap-4 text-white overflow-y-auto overflow-x-hidden pb-6 scrollbar-hide">
           <div className="flex items-center gap-4 shrink-0">
             <button onClick={() => setActiveView('business_dashboard')} className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm hover:bg-gray-600 transition-colors">
               &larr; Back to Dashboard
@@ -3982,7 +3982,7 @@ const PersonalRoom = () => {
           </div>
 
           {/* Quick Action Cards (Chini ya Slideshow) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 shrink-0 pb-1">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0 pb-8">
             {/* Kadi 1: My Employees (Bluu) */}
             <div className="bg-blue-900/20 border border-blue-500/30 p-3 sm:p-4 rounded-xl flex flex-col items-center text-center gap-2 hover:border-blue-500 hover:bg-blue-900/30 transition-all shadow-md">
               <div className="p-2 bg-blue-500/20 rounded-full text-blue-400 flex items-center justify-center">

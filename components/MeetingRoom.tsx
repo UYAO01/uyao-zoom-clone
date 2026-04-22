@@ -2579,8 +2579,29 @@ export default function MeetingRoom() {
       {/* NEW: Render Whiteboard overlay if active */}
       {showWhiteboard && <Whiteboard onClose={() => setShowWhiteboard(false)} />}
 
-      <div className="relative flex h-full w-full flex-row items-start justify-center px-4">
-        <div className="flex-grow max-w-[1000px] overflow-hidden">
+      {/* CSS Maalumu kwa ajili ya kurekebisha video ijae vizuri kwenye box la blue (active speaker) hasa kwenye simu */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .str-video__participant-view video {
+          object-fit: cover !important; /* Inafanya video ijae kote ndani ya box */
+          object-position: center !important; /* Inaweka sura katikati isikatwe vibaya */
+          width: 100% !important;
+          height: 100% !important;
+        }
+        .str-video__participant-view {
+          border-radius: 16px !important;
+          overflow: hidden !important;
+        }
+        .str-video__participant-view--active.str-video__participant-view--speaking {
+          box-shadow: 0 0 0 3px #2563eb !important; /* Rangi nzuri ya blue inayoonekana mtu akiongea */
+        }
+        .str-video__speaker-layout__wrapper, .str-video__paginated-grid-layout {
+          height: 100% !important;
+          width: 100% !important;
+        }
+      `}} />
+
+      <div className="relative flex h-[calc(100vh-140px)] sm:h-[calc(100vh-100px)] w-full flex-row items-center justify-center px-1 sm:px-4 pb-2">
+        <div className="flex-grow w-full max-w-[1000px] h-full overflow-hidden rounded-2xl">
           {renderCallLayout()}
         </div>
       </div>
@@ -2975,13 +2996,13 @@ export default function MeetingRoom() {
                         </button>
                     </div>
 
-                    {/* NEW: Virtual Background Settings */}
+                    {/* Device Settings (Kamera na Maikrofoni) */}
                     <div className="mt-4 pt-4 border-t border-gray-700">
                         <h4 className="text-md font-bold text-white mb-2">
-                            Virtual Background
+                            Mipangilio ya Vifaa (Kamera / Sauti)
                         </h4>
                         <p className="text-xs text-gray-400 mb-3">
-                            Change your background to one of our presets or upload your own.
+                            Chagua kamera (Mbele au Nyuma) na maikrofoni unayotaka kutumia.
                         </p>
                         {/* The DeviceSettings component from Stream handles the UI and logic */}
                         <div className="bg-gray-900 p-2 rounded-lg">
