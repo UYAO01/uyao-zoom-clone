@@ -57,10 +57,10 @@ const MeetingSetup = ({ setIsSetupComplete }: { setIsSetupComplete: (value: bool
         setupDevices();
     }, [isMicCamToggledOn, call, client, isMeetingUpcoming])
   return (
-    <div className='flex h-screen w-full flex-col items-center justify-center gap-3 text-white'>
+    <div className='flex h-[100dvh] w-full flex-col items-center justify-center gap-2 sm:gap-3 text-white p-4 sm:p-6 overflow-hidden'>
         {/* UYAO Logo displayed at the top of the landing page */}
-        <Image src="/icons/kkk.png" width={120} height={120} alt="UYAO Logo" className="rounded-full mb-4 shadow-lg" priority />
-        <h1 className='text-3xl font-bold'>UYAO Meeting</h1>
+        <Image src="/icons/kkk.png" width={120} height={120} alt="UYAO Logo" className="rounded-full shadow-lg w-20 h-20 sm:w-28 sm:h-28 object-cover shrink-0" priority />
+        <h1 className='text-2xl sm:text-3xl font-bold shrink-0 mb-1 sm:mb-2'>UYAO Meeting</h1>
 
         {isMeetingUpcoming ? (
             // Waiting screen for meetings that haven't started yet
@@ -78,19 +78,23 @@ const MeetingSetup = ({ setIsSetupComplete }: { setIsSetupComplete: (value: bool
         ) : (
             // Standard setup screen once the time has arrived
             <>
-                <VideoPreview />
-                <div className='flex h-16 items-center justify-center gap-3'>
-                    <label className='flex items-center justify-center gap-2 font-medium'>
+                <div className="w-full max-w-md shrink flex items-center justify-center rounded-2xl overflow-hidden shadow-lg border border-gray-700/50 bg-gray-800/50">
+                    <VideoPreview />
+                </div>
+                
+                <div className='flex flex-wrap items-center justify-center gap-x-4 gap-y-2 mt-2 sm:h-16 shrink-0'>
+                    <label className='flex items-center justify-center gap-2 font-medium text-sm sm:text-base cursor-pointer'>
                         <input
                         type="checkbox"
+                        className="w-4 h-4 cursor-pointer"
                         checked={isMicCamToggledOn}
                         onChange={(e) => setisMicCamToggledOn(e.target.checked)}
                         />
-                        Join with mic and camera off
+                        Join with mic & camera off
                     </label>
                     <DeviceSettings />
                 </div>
-                <button className='rounded-md bg-blue-600 px-8 py-3 font-semibold text-white shadow-lg hover:bg-blue-700 transition-all' onClick={() => { call.join(); setIsSetupComplete(true); }}>
+                <button className='rounded-xl bg-blue-600 px-6 py-3 mt-2 font-bold text-white shadow-lg hover:bg-blue-700 transition-all w-full max-w-xs shrink-0' onClick={() => { call.join(); setIsSetupComplete(true); }}>
                     Join Meeting Now
                 </button>
             </>

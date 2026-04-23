@@ -20,7 +20,7 @@ function SyncWithStream() {
         data: JSON.stringify(snapshot),
       });
     }
-  }, 500); // Tumeongeza muda hadi 500ms kuepuka kuzuiliwa na seva za Stream (Rate Limiting)
+  }, 2); // BORESHO: Hapa ni 'fps' (mara ngapi kwa sekunde), sio milliseconds. 2 fps inamaanisha kila 500ms.
   useEffect(() => {
     if (!editor || !call) return;
 
@@ -127,7 +127,7 @@ export const Whiteboard = ({ onClose, ...tldrawProps }: TldrawProps & { onClose?
           <X size={24} />
         </button>
       )}
-      <Tldraw {...tldrawProps}>
+      <Tldraw {...tldrawProps} /* licenseKey="WEKA_KEY_YAKO_HAPA_KAMA_UNAYO" */>
         {/* SyncWithStream is a child and can use the useEditor hook */}
         <SyncWithStream />
         {/* Custom Toolbar for Undo, Redo, Export */}
