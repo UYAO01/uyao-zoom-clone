@@ -74,6 +74,7 @@ const MobileNav = () => {
                 height={512}
                 alt="UYAO LOGO"
                 className="max-sm:size-10"
+                priority
               />
               <p className="text-[26px] font-extrabold text-white">UYAO</p>
             </Link>

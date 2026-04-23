@@ -40,18 +40,26 @@ const MeetingSetup = ({ setIsSetupComplete }: { setIsSetupComplete: (value: bool
         // Kuzuia kuomba permission ya mic/camera kama kikao bado hakijaanza (waiting screen)
         if (isMeetingUpcoming) return;
 
-        if(isMicCamToggledOn){
-            call?.camera?.disable();
-            call?.microphone?.disable();
-        }else{
-            call?.camera?.enable();
-            call?.microphone?.enable();
-        }
-    }, [isMicCamToggledOn, call?.camera, call?.microphone, client, isMeetingUpcoming])
+        const setupDevices = async () => {
+            try {
+                if(isMicCamToggledOn){
+                    await call?.camera?.disable();
+                    await call?.microphone?.disable();
+                }else{
+                    await call?.camera?.enable();
+                    await call?.microphone?.enable();
+                }
+            } catch (error) {
+                console.error("Error toggling devices:", error);
+            }
+        };
+        
+        setupDevices();
+    }, [isMicCamToggledOn, call, client, isMeetingUpcoming])
   return (
     <div className='flex h-screen w-full flex-col items-center justify-center gap-3 text-white'>
         {/* UYAO Logo displayed at the top of the landing page */}
-        <Image src="/icons/kkk.png" width={120} height={120} alt="UYAO Logo" className="rounded-full mb-4 shadow-lg" />
+        <Image src="/icons/kkk.png" width={120} height={120} alt="UYAO Logo" className="rounded-full mb-4 shadow-lg" priority />
         <h1 className='text-3xl font-bold'>UYAO Meeting</h1>
 
         {isMeetingUpcoming ? (

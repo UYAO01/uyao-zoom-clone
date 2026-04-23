@@ -623,7 +623,7 @@ const PersonalRoom = () => {
     const uniqueEmployees = new Map<string, Employee>();
     
     applications.forEach((app) => {
-      if (app.isAccepted && myJobIdsSet.has(app.jobId) && app.applicantId) {
+      if (app.isAccepted && (myJobIdsSet.has(app.jobId) || app.jobId === `DIRECT-${user.id}`) && app.applicantId) {
         if (!uniqueEmployees.has(app.applicantId)) {
           uniqueEmployees.set(app.applicantId, {
             id: app.applicantId,
@@ -656,6 +656,8 @@ const PersonalRoom = () => {
   const [autoTermStep, setAutoTermStep] = useState(1);
   const [resignationStep, setResignationStep] = useState(1);
   const [clearanceStatus, setClearanceStatus] = useState({ it: false, finance: false, operations: false });
+  const [isAddingEmployee, setIsAddingEmployee] = useState(false);
+  const [newEmpData, setNewEmpData] = useState({ name: '', email: '', phone: '', role: '', department: 'Unassigned' });
 
   // Mpya: States kwa ajili ya Schedule Staff Meeting (The Smart Calendar Scheduler)
   const [staffMeetingTitle, setStaffMeetingTitle] = useState('');
@@ -1106,6 +1108,38 @@ const PersonalRoom = () => {
         await updateDoc(doc(db, 'job_applications', appId), { isAccepted: false, employeeStatus: 'Terminated' });
         toast.success("Mfanyakazi amesitishwa na kuondolewa kwenye Directory.");
       } catch (error) { console.error(error); toast.error("Imeshindwa kufuta mfanyakazi."); }
+    }
+  };
+
+  const handleAddManualEmployee = async () => {
+    if (!user?.id || !newEmpData.name || !newEmpData.email) {
+      toast.error("Tafadhali jaza Jina na Barua Pepe (Email).");
+      return;
+    }
+    try {
+      const myFirstJob = myJobs[0];
+      const jobId = myFirstJob ? myFirstJob.id : `DIRECT-${user.id}`;
+      
+      await addDoc(collection(db, 'job_applications'), {
+        jobId: jobId,
+        jobPosition: newEmpData.role || 'Employee',
+        companyName: myFirstJob ? myFirstJob.companyName : 'Kampuni Yako',
+        applicantId: `MANUAL-${Date.now()}`,
+        applicantName: newEmpData.name,
+        applicantEmail: newEmpData.email,
+        applicantPhone: newEmpData.phone,
+        isAccepted: true, 
+        employeeRole: newEmpData.role,
+        employeeDepartment: newEmpData.department,
+        employeeStatus: 'Active',
+        appliedAt: new Date().toISOString()
+      });
+      toast.success("Mfanyakazi ameongezwa kikamilifu kwenye Directory!");
+      setIsAddingEmployee(false);
+      setNewEmpData({ name: '', email: '', phone: '', role: '', department: 'Unassigned' });
+    } catch (error) {
+      console.error(error);
+      toast.error("Imeshindwa kuongeza mfanyakazi.");
     }
   };
 
@@ -2092,6 +2126,9 @@ const PersonalRoom = () => {
               );
             })
           )}
+          <button onClick={() => setIsAddingEmployee(true)} className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg transition-colors text-sm shadow-lg">
+            + Add Employee
+          </button>
         </div>
       </section>
     );
@@ -3941,16 +3978,16 @@ const PersonalRoom = () => {
     const prevSlide = () => setCurrentSlide((prev) => (prev - 1 + MANAGEMENT_SLIDES.length) % MANAGEMENT_SLIDES.length);
 
     return (
-           <section className="flex flex-col h-[calc(100vh-140px)] w-full gap-4 text-white overflow-y-auto overflow-x-hidden pb-6 scrollbar-hide">
-          <div className="flex items-center gap-4 shrink-0">
-            <button onClick={() => setActiveView('business_dashboard')} className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm hover:bg-gray-600 transition-colors">
-              &larr; Back to Dashboard
-            </button>
-            <h1 className="text-2xl sm:text-3xl font-extrabold">Team Management</h1>
-          </div>
+      <section className="flex size-full flex-col gap-4 text-white overflow-y-auto lg:overflow-hidden pb-6">
+        <div className="flex items-center gap-4 shrink-0">
+          <button onClick={() => setActiveView('business_dashboard')} className="rounded-lg bg-gray-700 px-3 py-1.5 text-sm hover:bg-gray-600 transition-colors">
+            &larr; Back
+          </button>
+          <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold">Team Management</h1>
+        </div>
           
           {/* Slideshow Section */}
-          <div className="relative w-full flex-1 min-h-[120px] rounded-2xl overflow-hidden shadow-xl group">
+          <div className="relative w-full h-32 sm:h-40 lg:h-48 xl:h-56 shrink-0 rounded-2xl overflow-hidden shadow-xl group">
             <img 
               src={MANAGEMENT_SLIDES[currentSlide].image} 
               alt="Management Slide" 
@@ -3978,67 +4015,119 @@ const PersonalRoom = () => {
           {/* Ujumbe wa Kukaribisha (Welcome Message) */}
           <div className="bg-gray-800/60 border border-gray-700 p-3 sm:p-4 rounded-xl text-center shadow-inner shrink-0">
             <h2 className="text-lg sm:text-xl font-bold text-white mb-1">Karibu, {user?.fullName || 'Meneja'}! 👋</h2>
-            <p className="text-gray-300 text-xs sm:text-sm">Hiki ni kitovu chako kikuu cha kusimamia wafanyakazi, kupanga vikao, na kushughulikia masuala ya kinidhamu. Chagua hatua hapa chini kuanza.</p>
+            <p className="text-gray-300 text-xs sm:text-sm">Hiki ni kitovu chako kikuu cha kusimamia wafanyakazi, kupanga vikao, na kushughulikia masuala ya kinidhamu.</p>
           </div>
 
           {/* Quick Action Cards (Chini ya Slideshow) */}
-          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0 pb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shrink-0 pb-2">
             {/* Kadi 1: My Employees (Bluu) */}
-            <div className="bg-blue-900/20 border border-blue-500/30 p-3 sm:p-4 rounded-xl flex flex-col items-center text-center gap-2 hover:border-blue-500 hover:bg-blue-900/30 transition-all shadow-md">
-              <div className="p-2 bg-blue-500/20 rounded-full text-blue-400 flex items-center justify-center">
-                <Users size={20} />
+            <div className="bg-blue-900/20 border border-blue-500/30 p-4 rounded-xl flex flex-col items-center text-center gap-3 hover:border-blue-500 hover:bg-blue-900/30 transition-all shadow-md">
+              <div className="p-3 bg-blue-500/20 rounded-full text-blue-400 flex items-center justify-center">
+                <Users size={24} />
               </div>
               <div className="flex-1 flex flex-col justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-white mb-0.5 leading-tight">My Employees</h3>
-                <p className="text-[10px] sm:text-xs text-gray-400 leading-tight hidden sm:block">Orodha na taarifa za wafanyakazi wako wote.</p>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-1 leading-tight">My Employees</h3>
+                <p className="text-xs sm:text-sm text-gray-400 leading-tight">Orodha na taarifa za wafanyakazi wako wote.</p>
               </div>
-              <button onClick={() => setActiveView('employee_directory')} className="mt-auto w-full py-1.5 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-bold transition-colors">
-                View List
-              </button>
+              <div className="mt-auto flex flex-col gap-2 w-full">
+                <button onClick={() => setActiveView('employee_directory')} className="w-full py-2.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow-lg">
+                  View List
+                </button>
+                <button onClick={() => setIsAddingEmployee(true)} className="w-full py-2 rounded-lg bg-blue-800/60 hover:bg-blue-700 text-blue-100 text-sm font-bold transition-colors border border-blue-500/30">
+                  + Add Employee
+                </button>
+              </div>
             </div>
 
             {/* Kadi 2: Schedule Staff Meeting (Kijani) */}
-            <div className="bg-green-900/20 border border-green-500/30 p-3 sm:p-4 rounded-xl flex flex-col items-center text-center gap-2 hover:border-green-500 hover:bg-green-900/30 transition-all shadow-md">
-              <div className="p-2 bg-green-500/20 rounded-full text-green-400 flex items-center justify-center">
-                <Calendar size={20} />
+            <div className="bg-green-900/20 border border-green-500/30 p-4 rounded-xl flex flex-col items-center text-center gap-3 hover:border-green-500 hover:bg-green-900/30 transition-all shadow-md">
+              <div className="p-3 bg-green-500/20 rounded-full text-green-400 flex items-center justify-center">
+                <Calendar size={24} />
               </div>
               <div className="flex-1 flex flex-col justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-white mb-0.5 leading-tight">Staff Meeting</h3>
-                <p className="text-[10px] sm:text-xs text-gray-400 leading-tight hidden sm:block">Panga kikao cha mtandaoni na wafanyakazi.</p>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-1 leading-tight">Staff Meeting</h3>
+                <p className="text-xs sm:text-sm text-gray-400 leading-tight">Panga kikao cha mtandaoni na wafanyakazi.</p>
               </div>
-              <button onClick={() => setActiveView('schedule_staff_meeting')} className="mt-auto w-full py-1.5 sm:py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-bold transition-colors">
+              <button onClick={() => setActiveView('schedule_staff_meeting')} className="mt-auto w-full py-2.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-bold transition-colors shadow-lg">
                 Schedule Meeting
               </button>
             </div>
 
             {/* Kadi 3: Disciplinary Hearings (Chungwa) */}
-            <div className="bg-orange-900/20 border border-orange-500/30 p-3 sm:p-4 rounded-xl flex flex-col items-center text-center gap-2 hover:border-orange-500 hover:bg-orange-900/30 transition-all shadow-md">
-              <div className="p-2 bg-orange-500/20 rounded-full text-orange-400 flex items-center justify-center">
-                <Gavel size={20} />
+            <div className="bg-orange-900/20 border border-orange-500/30 p-4 rounded-xl flex flex-col items-center text-center gap-3 hover:border-orange-500 hover:bg-orange-900/30 transition-all shadow-md">
+              <div className="p-3 bg-orange-500/20 rounded-full text-orange-400 flex items-center justify-center">
+                <Gavel size={24} />
               </div>
               <div className="flex-1 flex flex-col justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-white mb-0.5 leading-tight">Disciplinary Hearings</h3>
-                <p className="text-[10px] sm:text-xs text-gray-400 leading-tight hidden sm:block">Endesha vikao vya kinidhamu kwa usalama.</p>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-1 leading-tight">Disciplinary</h3>
+                <p className="text-xs sm:text-sm text-gray-400 leading-tight">Endesha vikao vya kinidhamu kwa usalama.</p>
               </div>
-              <button onClick={() => setActiveView('admin_disciplinary_cases')} className="mt-auto w-full py-1.5 sm:py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-xs sm:text-sm font-bold transition-colors">
+              <button onClick={() => setActiveView('admin_disciplinary_cases')} className="mt-auto w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-bold transition-colors shadow-lg">
                 Start Hearing
               </button>
             </div>
 
             {/* Kadi 4: Employment Terminations (Nyekundu) */}
-            <div className="bg-red-900/20 border border-red-500/30 p-3 sm:p-4 rounded-xl flex flex-col items-center text-center gap-2 hover:border-red-500 hover:bg-red-900/30 transition-all shadow-md">
-              <div className="p-2 bg-red-500/20 rounded-full text-red-400 flex items-center justify-center">
-                <DoorOpen size={20} />
+            <div className="bg-red-900/20 border border-red-500/30 p-4 rounded-xl flex flex-col items-center text-center gap-3 hover:border-red-500 hover:bg-red-900/30 transition-all shadow-md">
+              <div className="p-3 bg-red-500/20 rounded-full text-red-400 flex items-center justify-center">
+                <DoorOpen size={24} />
               </div>
               <div className="flex-1 flex flex-col justify-center">
-                <h3 className="text-sm sm:text-base font-bold text-white mb-0.5 leading-tight">Terminations</h3>
-                <p className="text-[10px] sm:text-xs text-gray-400 leading-tight hidden sm:block">Simamia usitishaji wa ajira kwa utaratibu.</p>
+                <h3 className="text-base sm:text-lg font-bold text-white mb-1 leading-tight">Terminations</h3>
+                <p className="text-xs sm:text-sm text-gray-400 leading-tight">Simamia usitishaji wa ajira kwa utaratibu.</p>
               </div>
-              <button onClick={() => { toast.info("Tafadhali chagua mfanyakazi wa kumsitisha kutoka kwenye orodha."); setActiveView('employee_directory'); }} className="mt-auto w-full py-1.5 sm:py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-bold transition-colors">
+              <button onClick={() => { toast.info("Tafadhali chagua mfanyakazi wa kumsitisha kutoka kwenye orodha."); setActiveView('employee_directory'); }} className="mt-auto w-full py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-bold transition-colors shadow-lg">
                 Manage Terminations
               </button>
             </div>
           </div>
+
+          {/* Footer Mdogo (Mini Footer) */}
+          <div className="mt-auto pt-2 text-center shrink-0 border-t border-gray-800">
+            <p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">UYAO &copy; {new Date().getFullYear()} - Team Management Dashboard</p>
+          </div>
+
+          {/* Modal ya Kuongeza Mfanyakazi (Direct Hire) */}
+          {isAddingEmployee && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+              <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
+                <button onClick={() => setIsAddingEmployee(false)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
+                <h2 className="mb-4 text-xl font-bold text-white">Sajili Mfanyakazi Mpya</h2>
+                <div className="flex flex-col gap-4">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">Jina Kamili *</label>
+                    <input type="text" value={newEmpData.name} onChange={e => setNewEmpData({...newEmpData, name: e.target.value})} placeholder="Mfano: Juma Ali" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">Barua Pepe (Email) *</label>
+                    <input type="email" value={newEmpData.email} onChange={e => setNewEmpData({...newEmpData, email: e.target.value})} placeholder="Mfano: juma@email.com" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">Namba ya Simu</label>
+                    <input type="text" value={newEmpData.phone} onChange={e => setNewEmpData({...newEmpData, phone: e.target.value})} placeholder="Mfano: 0700000000" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">Cheo (Role)</label>
+                    <input type="text" value={newEmpData.role} onChange={e => setNewEmpData({...newEmpData, role: e.target.value})} placeholder="Mfano: IT Support" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm text-gray-300">Idara (Department)</label>
+                    <select value={newEmpData.department} onChange={e => setNewEmpData({...newEmpData, department: e.target.value})} className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none">
+                      <option value="Unassigned">Unassigned</option>
+                      <option value="Human Resources">Human Resources</option>
+                      <option value="IT">IT</option>
+                      <option value="Marketing">Marketing</option>
+                      <option value="Finance">Finance</option>
+                    </select>
+                  </div>
+                  <div className="mt-4 flex gap-3 w-full">
+                    <button onClick={() => setIsAddingEmployee(false)} className="w-full rounded-lg bg-gray-700 px-4 py-3 font-bold text-white hover:bg-gray-600 transition-colors">Ghairi</button>
+                    <button onClick={handleAddManualEmployee} className="w-full rounded-lg bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 transition-colors">Sajili</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
        </section>
     );
   }
@@ -4231,6 +4320,48 @@ const PersonalRoom = () => {
             )}
           </div>
         </div>
+
+        {/* Modal ya Kuongeza Mfanyakazi (Direct Hire) */}
+        {isAddingEmployee && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+            <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
+              <button onClick={() => setIsAddingEmployee(false)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
+              <h2 className="mb-4 text-xl font-bold text-white">Sajili Mfanyakazi Mpya</h2>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-gray-300">Jina Kamili *</label>
+                  <input type="text" value={newEmpData.name} onChange={e => setNewEmpData({...newEmpData, name: e.target.value})} placeholder="Mfano: Juma Ali" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-gray-300">Barua Pepe (Email) *</label>
+                  <input type="email" value={newEmpData.email} onChange={e => setNewEmpData({...newEmpData, email: e.target.value})} placeholder="Mfano: juma@email.com" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-gray-300">Namba ya Simu</label>
+                  <input type="text" value={newEmpData.phone} onChange={e => setNewEmpData({...newEmpData, phone: e.target.value})} placeholder="Mfano: 0700000000" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-gray-300">Cheo (Role)</label>
+                  <input type="text" value={newEmpData.role} onChange={e => setNewEmpData({...newEmpData, role: e.target.value})} placeholder="Mfano: IT Support" className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none" />
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-gray-300">Idara (Department)</label>
+                  <select value={newEmpData.department} onChange={e => setNewEmpData({...newEmpData, department: e.target.value})} className="w-full rounded-lg bg-gray-900 px-4 py-3 text-white border border-gray-700 focus:border-blue-500 outline-none">
+                    <option value="Unassigned">Unassigned</option>
+                    <option value="Human Resources">Human Resources</option>
+                    <option value="IT">IT</option>
+                    <option value="Marketing">Marketing</option>
+                    <option value="Finance">Finance</option>
+                  </select>
+                </div>
+                <div className="mt-4 flex gap-3 w-full">
+                  <button onClick={() => setIsAddingEmployee(false)} className="w-full rounded-lg bg-gray-700 px-4 py-3 font-bold text-white hover:bg-gray-600 transition-colors">Ghairi</button>
+                  <button onClick={handleAddManualEmployee} className="w-full rounded-lg bg-blue-600 px-4 py-3 font-bold text-white hover:bg-blue-700 transition-colors">Sajili</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal ya Ku-Edit Employee */}
         {editingEmployee && (

@@ -224,9 +224,22 @@ const MeetingTypeList = () => {
     }
   };
 
+  const joinMeeting = () => {
+    const meetingUrl = values.link;
+    if (!meetingUrl) {
+      toast.error('Please enter a meeting link or ID');
+      return;
+    }
+    const meetingId = meetingUrl.includes('/meeting/') 
+        ? meetingUrl.split('/meeting/')[1] 
+        : meetingUrl;
+    router.push(`/meeting/${meetingId}`);
+  };
+
   return (
-   
-      <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4">
+    <div className="flex flex-col h-full min-h-[60vh] w-full">
+      <div className="flex-1">
+        <section className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-4 mb-8">
         <HomeCards
           Img="/icons/personal.svg"
           title="New Meeting"
@@ -261,6 +274,7 @@ const MeetingTypeList = () => {
           handleClick={() => setMeetingState('isJoinMeeting')}
           className="bg-yellow-500"
         />
+        </section>
       
       {!callDetails ? (
         <MeetingModal
@@ -356,6 +370,23 @@ const MeetingTypeList = () => {
         handleClick={createMeeting}
       />
 
+      {/* Modal for Joining Meeting */}
+      <MeetingModal
+        isOpen={meetingState === 'isJoinMeeting'}
+        onClose={() => setMeetingState(undefined)}
+        title="Paste the link or ID here"
+        className="text-center"
+        buttonText="Join Meeting"
+        handleClick={joinMeeting}
+      >
+        <input
+          placeholder="e.g., https://.../meeting/xyz-123 or xyz-123"
+          className="w-full rounded-lg bg-gray-800 text-white py-3 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 border border-gray-700"
+          onChange={(e) => setValues({ ...values, link: e.target.value })}
+          value={values.link}
+        />
+      </MeetingModal>
+
       {/* New Modal for Email Customization */}
       <MeetingModal
         isOpen={isEmailModalOpen}
@@ -441,7 +472,13 @@ const MeetingTypeList = () => {
           </div>
         )}
       </MeetingModal>
-    </section>
+      </div>
+      
+      {/* Footer Section */}
+      <div className="mt-8 pt-4 text-center border-t border-gray-800 shrink-0">
+        <p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">UYAO &copy; {new Date().getFullYear()} - Video Conferencing Platform</p>
+      </div>
+    </div>
   );
 };
 

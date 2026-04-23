@@ -805,7 +805,7 @@ function ChatPanel({
 
   return (
     <div
-      className="fixed bottom-[130px] sm:bottom-24 left-2 sm:left-6 z-[70] w-80 max-w-[95vw] flex flex-col pointer-events-none"
+      className="fixed bottom-[110px] sm:bottom-[130px] left-2 sm:left-6 z-[70] w-80 max-w-[95vw] flex flex-col pointer-events-none"
     >
       {/* Header with Three-Dot Menu */} 
       <div className="flex items-center justify-between bg-card/80 rounded-t-2xl p-3 border-b border-border pointer-events-auto text-foreground">
@@ -1900,6 +1900,13 @@ export default function MeetingRoom() {
   const [isRecordingOwner, setIsRecordingOwner] = useState(false);
   const [showStopRecordingDialog, setShowStopRecordingDialog] = useState(false);
 
+  // ADDED: Refs for stable callbacks to prevent infinite re-renders & flickering
+  const soundSettingsRef = useRef({ sound: DEFAULT_NOTIFICATION_SOUND, volume: 0.5, muted: false });
+
+  useEffect(() => {
+    soundSettingsRef.current = { sound: notificationSound, volume: notificationVolume, muted: isSoundMuted };
+  }, [notificationSound, notificationVolume, isSoundMuted]);
+
   // Load settings from local storage on mount
   useEffect(() => {
     const loadSettings = async () => {
@@ -1943,9 +1950,10 @@ export default function MeetingRoom() {
     }
   }, [call?.id]);
 
-  const playNotificationSound = useCallback((soundSrc: string) => {
-      if (!isSoundMuted) playSound(soundSrc, notificationVolume);
-  }, [isSoundMuted, notificationVolume]);
+  const playNotificationSound = useCallback((overrideSound?: string) => {
+      const { sound, volume, muted } = soundSettingsRef.current;
+      if (!muted) playSound(overrideSound || sound, volume);
+  }, []);
 
   // ADDED: Sound effect helper
 
@@ -2032,7 +2040,7 @@ export default function MeetingRoom() {
       call.off('custom', handleRaiseHandEvent);
       call.off('custom', handleVotingEvent);
     };
-  }, [call, router, playNotificationSound, notificationSound]);
+  }, [call, router, playNotificationSound]);
 
   // ... (Other useEffects for mic/chat)
 
@@ -2096,7 +2104,7 @@ export default function MeetingRoom() {
           replyTo: data.replyTo ?? null,
         };
         setMessages(prev => [...prev, messagePayload]);
-        playNotificationSound(notificationSound); // ADDED: Play sound for new message
+        playNotificationSound(); // ADDED: Play sound for new message
       } else if (ev.custom.type === 'message-deleted') {
         const data = ev.custom.data as { messageId?: string; deletedAt?: string };
         if (data.messageId) {
@@ -2134,7 +2142,7 @@ export default function MeetingRoom() {
           timestamp: data.timestamp ?? new Date().toISOString(),
         };
         setUploadedFiles(prev => [...prev, filePayload]);
-        playNotificationSound(notificationSound); // ADDED: Play sound for new file
+        playNotificationSound(); // ADDED: Play sound for new file
       } else if (ev.custom.type === 'typing-start') { // ADDED: Handle typing start
         setTypingUsers(prev => {
           const newSet = new Set(prev);
@@ -2154,7 +2162,7 @@ export default function MeetingRoom() {
     return () => {
       call.off('custom', handleCustomEvent);
     };
-  }, [call, notificationSound, playNotificationSound]);
+  }, [call, playNotificationSound]);
   
   const formatRecordingTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -2164,7 +2172,8 @@ export default function MeetingRoom() {
 
   // ... (Other functions like renderCallLayout, raiseHand, renderVideoControls)
 
-  if (callingState !== CallingState.JOINED) return <Loader />;
+  // Zuia 'Loader' isitokee mara kwa mara kama mtandao unayumba kidogo na kujaribu kujiunga upya
+  if (callingState !== CallingState.JOINED && callingState !== CallingState.RECONNECTING) return <Loader />;
 
   function renderCallLayout() {
     switch (layout) {
@@ -2575,33 +2584,23 @@ export default function MeetingRoom() {
   };
 
   return (
-    <section className="relative h-screen w-full overflow-hidden pt-4 bg-background text-foreground">
+    <section className="relative flex flex-col h-[100dvh] w-full overflow-hidden bg-background text-foreground">
       {/* NEW: Render Whiteboard overlay if active */}
       {showWhiteboard && <Whiteboard onClose={() => setShowWhiteboard(false)} />}
 
       {/* CSS Maalumu kwa ajili ya kurekebisha video ijae vizuri kwenye box la blue (active speaker) hasa kwenye simu */}
       <style dangerouslySetInnerHTML={{__html: `
-        .str-video__participant-view video {
-          object-fit: cover !important; /* Inafanya video ijae kote ndani ya box */
-          object-position: center !important; /* Inaweka sura katikati isikatwe vibaya */
-          width: 100% !important;
-          height: 100% !important;
-        }
         .str-video__participant-view {
-          border-radius: 16px !important;
+            border-radius: 12px !important;
           overflow: hidden !important;
         }
         .str-video__participant-view--active.str-video__participant-view--speaking {
           box-shadow: 0 0 0 3px #2563eb !important; /* Rangi nzuri ya blue inayoonekana mtu akiongea */
         }
-        .str-video__speaker-layout__wrapper, .str-video__paginated-grid-layout {
-          height: 100% !important;
-          width: 100% !important;
-        }
       `}} />
 
-      <div className="relative flex h-[calc(100vh-140px)] sm:h-[calc(100vh-100px)] w-full flex-row items-center justify-center px-1 sm:px-4 pb-2">
-        <div className="flex-grow w-full max-w-[1000px] h-full overflow-hidden rounded-2xl">
+      <div className="relative flex-1 w-full flex flex-row items-center justify-center px-2 sm:px-4 pt-2 sm:pt-4 pb-2 min-h-0">
+        <div className="w-full max-w-[1200px] h-full overflow-hidden rounded-2xl">
           {renderCallLayout()}
         </div>
       </div>
@@ -2618,11 +2617,11 @@ export default function MeetingRoom() {
         {renderParticipantList({ onClose: () => setShowParticipants(false) })}
       </aside>
 
-      <footer className="fixed bottom-0 left-0 w-full z-50 p-4 flex flex-col items-center gap-4">
+      <footer className="w-full z-50 p-3 sm:p-4 flex flex-col items-center gap-3 sm:gap-4 shrink-0 bg-background/95 backdrop-blur-md border-t border-border/50">
         {renderVideoControls()}
         
         {/* FIX: Explicit hex color for bg-gray-800 */}
-        <div className="hidden md:flex bg-card p-4 rounded-lg shadow-lg gap-4 items-center justify-center flex-wrap">
+        <div className="hidden md:flex bg-card p-3 rounded-xl shadow-lg gap-3 items-center justify-center flex-wrap border border-border/50">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               {/* FIX: Explicit hex color for bg-gray-900 */}
@@ -3040,7 +3039,7 @@ export default function MeetingRoom() {
 
       {/* Translation Panel (floating) */}
       {showTranslationPanel && (
-        <div className="fixed bottom-[130px] sm:bottom-24 right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
+        <div className="fixed bottom-[110px] sm:bottom-[130px] right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
           <div className="pointer-events-auto">
             <TranslationPanel
               messages={messages}
@@ -3052,7 +3051,7 @@ export default function MeetingRoom() {
 
       {/* --- Voting Box Render (Updated to pass PDF function) --- */}
       {showVotingBox && (
-        <div className="fixed bottom-[130px] sm:bottom-24 right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
+        <div className="fixed bottom-[110px] sm:bottom-[130px] right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
           <VotingBox
             call={call}
             isCreator={isCreator}
