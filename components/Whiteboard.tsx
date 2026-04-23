@@ -5,7 +5,7 @@ import '@tldraw/tldraw/tldraw.css';
 import { useCall } from '@stream-io/video-react-sdk';
 import { useEffect } from 'react';
 import { useThrottleCallback } from '@react-hook/throttle';
-import { X } from 'lucide-react';
+import { X, Undo, Redo, Download } from 'lucide-react';
 
 // Custom hook to handle synchronization
 function SyncWithStream() {
@@ -20,16 +20,16 @@ function SyncWithStream() {
         data: JSON.stringify(snapshot),
       });
     }
-  }, 50);
+  }, 500); // Tumeongeza muda hadi 500ms kuepuka kuzuiliwa na seva za Stream (Rate Limiting)
   useEffect(() => {
     if (!editor || !call) return;
 
-    const handleChange = (change: any) => {
-      // Only sync changes from the user
-      if (change.source !== 'user') return;
+    // Tldraw mpya hutumia editor.store.listen badala ya editor.on('change')
+    const cleanup = editor.store.listen((update: any) => {
+      if (update.source !== 'user') return;
       const snapshot = editor.getSnapshot();
       sendUpdate(snapshot);
-    };
+    }, { scope: 'document' });
 
     const handleCustomEvent = (event: any) => {
       // Check if it's a whiteboard update from another user
@@ -38,8 +38,10 @@ function SyncWithStream() {
         if (event.user.id === call.currentUserId) return;
         try {
           const snapshot = JSON.parse(event.custom.data);
-          // Load the received snapshot into the editor
-          editor.loadSnapshot(snapshot);
+          // Kuepuka kumkatiza mtu anayechora, pakia mabadiliko ikiwa tu kalamu (pen) haijashushwa
+          if (!editor.inputs?.isDragging && !editor.inputs?.isPointing) {
+            editor.loadSnapshot(snapshot);
+          }
         } catch (e) {
           console.error("Failed to parse or load whiteboard snapshot", e);
         }
@@ -55,19 +57,62 @@ function SyncWithStream() {
       }
     };
 
-    // Subscribe to editor changes and custom call events
-    editor.on('change', handleChange);
     call.on('custom', handleCustomEvent);
 
     // Clean up on unmount
     return () => {
-      editor.off('change', handleChange);
+      cleanup();
       call.off('custom', handleCustomEvent);
     };
   }, [editor, call, sendUpdate]);
 
   return null;
 }
+
+// Custom UI for Undo, Redo, and Save Image
+const WhiteboardCustomUI = () => {
+  const editor = useEditor();
+
+  const handleExport = async () => {
+    try {
+      const shapeIds = Array.from(editor.getCurrentPageShapeIds());
+      if (shapeIds.length === 0) {
+        alert('Ubao uko wazi! Chora kitu kwanza kabla ya kusave.');
+        return;
+      }
+      
+      const { blob } = await editor.toImage(shapeIds, {
+        format: 'png',
+        background: true,
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `mchoro-ubao-${new Date().getTime()}.png`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to export whiteboard:', error);
+      alert('Imeshindwa kusave mchoro kama picha.');
+    }
+  };
+
+  return (
+    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2 bg-gray-800 p-2 rounded-xl shadow-lg border border-gray-700">
+      <button onClick={() => editor.undo()} className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors" title="Undo (Turudishe Nyuma)">
+        <Undo size={20} />
+      </button>
+      <button onClick={() => editor.redo()} className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors" title="Redo (Peleka Mbele)">
+        <Redo size={20} />
+      </button>
+      <div className="w-px h-6 bg-gray-600 mx-1"></div>
+      <button onClick={handleExport} className="p-2 text-green-400 hover:text-green-300 hover:bg-gray-700 rounded-lg transition-colors flex items-center gap-2" title="Save as Image (PNG)">
+        <Download size={20} />
+        <span className="text-sm font-bold hidden sm:inline">Save Image</span>
+      </button>
+    </div>
+  );
+};
 
 // The main Whiteboard component
 export const Whiteboard = ({ onClose, ...tldrawProps }: TldrawProps & { onClose?: () => void }) => {
@@ -85,6 +130,8 @@ export const Whiteboard = ({ onClose, ...tldrawProps }: TldrawProps & { onClose?
       <Tldraw {...tldrawProps}>
         {/* SyncWithStream is a child and can use the useEditor hook */}
         <SyncWithStream />
+        {/* Custom Toolbar for Undo, Redo, Export */}
+        <WhiteboardCustomUI />
       </Tldraw>
     </div>
   );
