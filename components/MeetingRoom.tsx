@@ -2316,11 +2316,12 @@ export default function MeetingRoom() {
                 )}
               </button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content 
-              className="w-64 bg-card border border-border rounded-lg shadow-xl p-2 mb-16 z-[60] text-foreground max-h-[70vh] overflow-y-auto" 
+            <DropdownMenu.Content
+              // BORESHO: Badilisha upana na mpangilio ili menyu isitoke nje ya kioo kwenye simu ndogo
+              className="min-w-[280px] bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-2 z-[60] text-white max-h-[70vh] overflow-y-auto"
               side="top" 
-              align="end" 
-              sideOffset={10}
+              align="center" 
+              sideOffset={16}
             >
               <DropdownMenu.Label className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Layout</DropdownMenu.Label>
               <DropdownMenu.Item onClick={() => setLayout('speaker-left')} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
@@ -2627,7 +2628,7 @@ export default function MeetingRoom() {
               {/* FIX: Explicit hex color for bg-gray-900 */}
               <button type="button" aria-label="Change layout" className="flex items-center gap-2 px-4 py-2 rounded bg-secondary hover:bg-secondary/80 text-sm">
                 <LayoutDashboard size={16} />
-                <span></span>
+                <span className="hidden lg:inline">Layout</span>
               </button>
             </DropdownMenu.Trigger>
             {/* FIX: Explicit hex color for bg-gray-900 */}
