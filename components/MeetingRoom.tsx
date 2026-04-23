@@ -1150,7 +1150,7 @@ function ChatPanel({
       </Dialog.Root>
 
       {/* Delete Message Confirmation Dialog */}
-      <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
+      <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
           <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
@@ -2187,7 +2187,7 @@ export default function MeetingRoom() {
     }
   }
 
-  const filteredParticipants = participants.filter((p) =>
+  const filteredParticipants = participants.filter((p: any) =>
     (p.name || p.userId)?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -2223,15 +2223,95 @@ export default function MeetingRoom() {
       });
   };
 
+  // --- Recording and Action Handlers (Moved up to fix ReferenceErrors) ---
+  const startRecording = async () => {
+    if (!call) return;
+    try {
+      await call.startRecording();
+      setIsRecordingOwner(true);
+      sessionStorage.setItem(`recordingOwner_${call.id}`, 'true');
+
+      const systemMsg: ChatMessage = {
+        id: `${Date.now()}-system-start`,
+        user: "MFUMO (SYSTEM)",
+        text: `🔴 Rekodi imeanza (Recording started).`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!call) return;
+    try {
+      await call.stopRecording();
+      setIsRecordingOwner(false);
+      sessionStorage.removeItem(`recordingOwner_${call.id}`);
+
+      const systemMsg: ChatMessage = {
+        id: `${Date.now()}-system-stop`,
+        user: "MFUMO (SYSTEM)",
+        text: `⏹️ Rekodi imesimama (Recording stopped).`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+    }
+  };
+
+  const handleStopRecordingClick = () => {
+    if (isRecordingOwner) {
+      stopRecording();
+    } else {
+      setShowStopRecordingDialog(true);
+    }
+  };
+
+  const endCall = async () => {
+    if (!call) return;
+    await (call as Call).leave();
+    router.push('/');
+  };
+
+  const unreadFilesCount = !showChat && lastReadMessageTime
+    ? uploadedFiles.filter(
+        f => f.timestamp > lastReadMessageTime && f.user !== (localParticipant?.name || localParticipant?.userId)
+      ).length
+    : 0;
+
+  const unreadCount = !showChat && lastReadMessageTime
+    ? messages.filter(
+        msg => msg.timestamp > lastReadMessageTime && msg.user !== (localParticipant?.name || localParticipant?.userId)
+      ).length
+    : 0;
+
+  const handleShowChat = () => {
+    setShowChat((prev) => {
+      if (!prev && messages.length > 0) {
+        setLastReadMessageTime(messages[messages.length - 1].timestamp);
+      }
+      return !prev;
+    });
+  };
+
+  const handleShowVotingBox = () => {
+    setShowVotingBox((prev: boolean) => !prev);
+  }
+
+  const handleClearWhiteboard = async () => {
+    if (window.confirm('Are you sure you want to clear the whiteboard for everyone? This cannot be undone.')) {
+      if (!call) return;
+      await safeSendCustomEvent(call, { type: 'whiteboard-clear', data: {} });
+    }
+  };
+
   const renderVideoControls = () => {
     // UPDATED: Calculate total notifications including files and polls
-    const unreadFilesCount = !showChat && lastReadMessageTime
-      ? uploadedFiles.filter(
-          f =>
-            f.timestamp > lastReadMessageTime &&
-            f.user !== (localParticipant?.name || localParticipant?.userId)
-        ).length
-      : 0;
     
     const activePollCount = currentPoll && currentPoll.isActive ? 1 : 0;
     const totalNotificationCount = unreadCount + unreadFilesCount + raisedHands.size + activePollCount;
@@ -2338,7 +2418,7 @@ export default function MeetingRoom() {
               
               <DropdownMenu.Label className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Controls</DropdownMenu.Label>
 
-              <DropdownMenu.Item onClick={() => setShowParticipants((prev) => !prev)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
+              <DropdownMenu.Item onClick={() => setShowParticipants((prev: boolean) => !prev)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
                 <List size={16} /> Participants ({participants.length})
               </DropdownMenu.Item>
 
@@ -2347,7 +2427,7 @@ export default function MeetingRoom() {
                 {(unreadCount + unreadFilesCount) > 0 && <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded-full px-1.5">{unreadCount + unreadFilesCount}</span>}
               </DropdownMenu.Item> 
 
-              <DropdownMenu.Item onClick={() => setShowTranslationPanel((p) => !p)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
+              <DropdownMenu.Item onClick={() => setShowTranslationPanel((p: boolean) => !p)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
                 <span>🌐</span> Translation
               </DropdownMenu.Item>
 
@@ -2367,7 +2447,7 @@ export default function MeetingRoom() {
               </DropdownMenu.Item>
 
               {/* NEW: Whiteboard button for mobile */}
-              <DropdownMenu.Item onClick={() => setShowWhiteboard(p => !p)} className={cn("flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none", { "bg-blue-600": showWhiteboard })}>
+              <DropdownMenu.Item onClick={() => setShowWhiteboard((p: boolean) => !p)} className={cn("flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none", { "bg-blue-600": showWhiteboard })}>
                 <WhiteboardIcon size={16} /> Whiteboard
               </DropdownMenu.Item>
 
@@ -2462,7 +2542,7 @@ export default function MeetingRoom() {
       />
 
       <ul className="space-y-3 overflow-y-auto flex-grow">
-        {filteredParticipants.map((participant) => (
+        {filteredParticipants.map((participant: any) => (
           <li key={participant.userId} className="flex items-center gap-3">
             <NextImage
               src={
@@ -2489,100 +2569,6 @@ export default function MeetingRoom() {
     </div>
   );
 
-  // --- Recording handlers ---
-  const startRecording = async () => {
-    if (!call) return;
-    try {
-      await call.startRecording();
-      setIsRecordingOwner(true);
-      sessionStorage.setItem(`recordingOwner_${call.id}`, 'true');
-
-      const systemMsg: ChatMessage = {
-        id: `${Date.now()}-system-start`,
-        user: "MFUMO (SYSTEM)",
-        text: `🔴 Rekodi imeanza (Recording started).`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, systemMsg]);
-      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!call) return;
-    try {
-      await call.stopRecording();
-      setIsRecordingOwner(false);
-      sessionStorage.removeItem(`recordingOwner_${call.id}`);
-
-      const systemMsg: ChatMessage = {
-        id: `${Date.now()}-system-stop`,
-        user: "MFUMO (SYSTEM)",
-        text: `⏹️ Rekodi imesimama (Recording stopped).`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, systemMsg]);
-      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
-  };
-
-  const handleStopRecordingClick = () => {
-    if (isRecordingOwner) {
-      stopRecording();
-    } else {
-      setShowStopRecordingDialog(true);
-    }
-  };
-
-  const endCall = async () => {
-    if (!call) return;
-    await (call as Call).leave();
-    router.push('/');
-  };
-
-  // UPDATED: Calculate unread count to include files for the Chat button badge
-  const unreadFilesCount = !showChat && lastReadMessageTime
-    ? uploadedFiles.filter(
-        f =>
-          f.timestamp > lastReadMessageTime &&
-          f.user !== (localParticipant?.name || localParticipant?.userId)
-      ).length
-    : 0;
-  const unreadCount = !showChat && lastReadMessageTime
-    ? messages.filter(
-        msg =>
-          msg.timestamp > lastReadMessageTime &&
-          msg.user !== (localParticipant?.name || localParticipant?.userId)
-      ).length
-    : 0;
-
-  const handleShowChat = () => {
-    setShowChat((prev) => {
-      if (!prev) {
-        // Chat is being opened, mark all as read
-        if (messages.length > 0) {
-          setLastReadMessageTime(messages[messages.length - 1].timestamp);
-        }
-      }
-      return !prev;
-    });
-  };
-  
-  // Toggle Voting Box handler
-  const handleShowVotingBox = () => {
-    setShowVotingBox(prev => !prev);
-  }
-
-  const handleClearWhiteboard = async () => {
-    if (window.confirm('Are you sure you want to clear the whiteboard for everyone? This cannot be undone.')) {
-      if (!call) return;
-      await safeSendCustomEvent(call, { type: 'whiteboard-clear', data: {} });
-    }
-  };
 
   return (
     <section className="relative flex flex-col h-[100dvh] w-full overflow-hidden bg-background text-foreground">
@@ -2656,7 +2642,7 @@ export default function MeetingRoom() {
 
           <button
             type="button"
-            onClick={() => setShowParticipants((prev) => !prev)}
+            onClick={() => setShowParticipants((prev: boolean) => !prev)}
             // FIX: Explicit hex color for bg-gray-900
             className="flex items-center gap-2 px-4 py-2 rounded bg-secondary hover:bg-secondary/80 text-foreground text-sm cursor-pointer"
           >
@@ -2682,7 +2668,7 @@ export default function MeetingRoom() {
 
           <button
             type="button"
-            onClick={() => setShowTranslationPanel((p) => !p)}
+            onClick={() => setShowTranslationPanel((p: boolean) => !p)}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded text-white text-sm cursor-pointer transition-colors',
               showTranslationPanel
@@ -2750,7 +2736,7 @@ export default function MeetingRoom() {
           {/* NEW: Whiteboard Button (Desktop) */}
           <button
             type="button"
-            onClick={() => setShowWhiteboard(p => !p)}
+            onClick={() => setShowWhiteboard((p: boolean) => !p)}
             className={cn('flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm cursor-pointer', showWhiteboard ? 'bg-primary hover:bg-primary/80' : 'bg-secondary hover:bg-secondary/80')}
           >
             <WhiteboardIcon size={16} />
@@ -3065,5 +3051,4 @@ export default function MeetingRoom() {
       )}
     </section>
   );
-};                              localStorage.removeItem('notificationSound');
-                         
+};
