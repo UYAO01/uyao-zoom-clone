@@ -1153,13 +1153,13 @@ function ChatPanel({
       <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Delete Message?
             </Dialog.Title>
-            <p className="text-gray-300 text-sm mb-6">
+            <Dialog.Description className="text-gray-300 text-sm mb-6">
               Choose how to delete this message.
-            </p>
+            </Dialog.Description>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => deleteConfirmId !== null && handleDeleteForMe(deleteConfirmId)}
@@ -2810,13 +2810,13 @@ export default function MeetingRoom() {
       <Dialog.Root open={showStopRecordingDialog} onOpenChange={setShowStopRecordingDialog}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Stop Recording?
             </Dialog.Title>
-            <p className="text-gray-300 text-sm mb-6">
+            <Dialog.Description className="text-gray-300 text-sm mb-6">
               You didn&apos;t start this recording. Are you sure you want to stop it for everyone?
-            </p>
+            </Dialog.Description>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowStopRecordingDialog(false)}
@@ -2842,13 +2842,13 @@ export default function MeetingRoom() {
       <Dialog.Root open={showLeaveCallDialog} onOpenChange={setShowLeaveCallDialog}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Ondoka Kwenye Kikao?
             </Dialog.Title>
-            <p className="text-gray-300 text-sm mb-6">
+            <Dialog.Description className="text-gray-300 text-sm mb-6">
               Je, una uhakika unataka kukata simu na kuondoka kwenye kikao hiki?
-            </p>
+            </Dialog.Description>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowLeaveCallDialog(false)}

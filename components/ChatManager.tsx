@@ -198,13 +198,13 @@ export default function ChatManager({
       <Dialog.Root open={confirmDelete !== null} onOpenChange={(open) => !open && setConfirmDelete(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-50">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-50">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Delete Chat?
             </Dialog.Title>
-            <p className="text-gray-300 text-sm mb-6">
+            <Dialog.Description className="text-gray-300 text-sm mb-6">
               This action cannot be undone. All messages in this chat will be permanently deleted.
-            </p>
+            </Dialog.Description>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setConfirmDelete(null)}
@@ -227,13 +227,13 @@ export default function ChatManager({
       <Dialog.Root open={confirmClear !== null} onOpenChange={(open) => !open && setConfirmClear(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-black/50 z-50" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-50">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-50">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Clear Chat?
             </Dialog.Title>
-            <p className="text-gray-300 text-sm mb-6">
+            <Dialog.Description className="text-gray-300 text-sm mb-6">
               This will delete all messages in this chat. The chat will remain but be empty.
-            </p>
+            </Dialog.Description>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setConfirmClear(null)}
