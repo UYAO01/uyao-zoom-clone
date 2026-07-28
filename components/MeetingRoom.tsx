@@ -1000,26 +1000,18 @@ function ChatPanel({
                       >
                         {file.name}
                       </a>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          try {
-                            if (!file.publicId) {
-                              alert('File information incomplete');
-                              return;
-                            }
-                            const downloadUrl = `/api/download-file?fileName=${encodeURIComponent(file.publicId)}&originalName=${encodeURIComponent(file.name)}`;
-                            window.location.href = downloadUrl;
-                          } catch (error) {
-                            console.error('Download failed:', error);
-                          }
-                        }}
+                      {/* BORESHO: Kitufe cha kudownload sasa kinatumia URL ya Firebase moja kwa moja na hakihitaji API. */}
+                      <a
+                        href={file.url}
+                        download={file.name}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
                         className="ml-2 px-2 py-1 rounded bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-medium cursor-pointer"
                         title="Download file"
                       >
-                        ↓
-                      </button>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                      </a>
                     </div>
                   )}
                 </div>
@@ -1910,6 +1902,8 @@ export const MobileFirstMeetingUI = () => {
   const [showStopRecordingDialog, setShowStopRecordingDialog] = useState(false);
 
   // ADDED: Refs for stable callbacks to prevent infinite re-renders & flickering
+  // BORESHO: State ya kufuatilia ni mshiriki gani amechaguliwa (pinned) kuonekana kwenye skrini kubwa
+  const [pinnedParticipant, setPinnedParticipant] = useState<StreamVideoParticipant | null>(null);
   const soundSettingsRef = useRef({ sound: DEFAULT_NOTIFICATION_SOUND, volume: 0.5, muted: false });
 
   useEffect(() => {
@@ -2577,14 +2571,17 @@ export const MobileFirstMeetingUI = () => {
     }
   };
 
-  // Find the active speaker
-  // 1. Find the first participant who is speaking.
-  // 2. If no one is speaking, find the local participant.
-  // 3. If still no one, just take the first person in the list.
+  // BORESHO: Logic ya kubaini nani aonekane kwenye skrini kubwa imeboreshwa.
+  // 1. Kama mtumiaji amemchagua (pin) mtu, huyo ndiye ataonekana.
+  // 2. Kama hakuna, ataonekana anayeongea (isSpeaking).
+  // 3. Kama hakuna anayeongea, ataonekana mshiriki mwingine wa kwanza.
+  // 4. Kama uko peke yako, utajiona mwenyewe.
+  const remoteParticipants = participants.filter(p => !p.isLocalParticipant);
   const activeSpeaker = 
+    pinnedParticipant ||
     participants.find(p => p.isSpeaking) || 
-    participants.find(p => p.isLocalParticipant) ||
-    participants[0];
+    remoteParticipants[0] ||
+    localParticipant;
 
  // Filter out the active speaker to get the list of other participants
   const otherParticipants = participants.filter(p => p.sessionId !== activeSpeaker?.sessionId);
@@ -2629,15 +2626,17 @@ export const MobileFirstMeetingUI = () => {
         <div className="flex md:hidden w-full h-full gap-2">
             {/* Safu ya Kushoto: Video Ndogo (Scrollable) */}
             <div className="w-1/3 h-full overflow-y-auto flex flex-col gap-2">
+              {/* BORESHO: Uwezo wa kubofya video ndogo kuileta kwenye skrini kubwa (pinning) */}
               {otherParticipants.map(p => (
-                <div key={p.sessionId} className="w-full aspect-video shrink-0">
+                <div key={p.sessionId} className="w-full aspect-video shrink-0 cursor-pointer" onClick={() => setPinnedParticipant(p)}>
                   <StreamParticipantTile participant={p} />
                 </div>
               ))}
             </div>
 
             {/* Safu ya Kulia: Video Kubwa (Mzungumzaji Mkuu) - Imepunguzwa kidogo */}
-            <div className="w-2/3 main-speaker-container">
+            {/* BORESHO: Ukibofya video kubwa, inarudi kwenye hali ya kawaida (unpin) */}
+            <div className="w-2/3 main-speaker-container cursor-pointer" onClick={() => setPinnedParticipant(null)}>
               {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
             </div>
         </div>
@@ -2645,15 +2644,17 @@ export const MobileFirstMeetingUI = () => {
         {/* BORESHO: MUONEKANO WA TABLET & KOMPYUTA (Speaker-Right Layout) - Unafichwa kwenye simu */}
         <div className="hidden md:flex w-full h-full gap-4"> {/* Desktop layout */}
             {/* Eneo Kubwa: Video ya Mzungumzaji Mkuu */}
-            <div className="flex-1 h-full main-speaker-container">
+            {/* BORESHO: Ukibofya video kubwa, inarudi kwenye hali ya kawaida (unpin) */}
+            <div className="flex-1 h-full main-speaker-container cursor-pointer" onClick={() => setPinnedParticipant(null)}>
               {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
             </div>
 
             {/* Safu ya Kulia: Washiriki wengine (Scrollable) */}
             <div className="w-64 lg:w-72 h-full flex flex-col gap-2">
                 <div className="flex-1 overflow-y-auto flex flex-col gap-2">
+                    {/* BORESHO: Uwezo wa kubofya video ndogo kuileta kwenye skrini kubwa (pinning) */}
                     {otherParticipants.map(p => (
-                        <div key={p.sessionId} className="w-full aspect-video shrink-0">
+                        <div key={p.sessionId} className="w-full aspect-video shrink-0 cursor-pointer" onClick={() => setPinnedParticipant(p)}>
                             <StreamParticipantTile participant={p} />
                         </div>
                     ))}
