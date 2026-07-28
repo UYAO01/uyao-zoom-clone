@@ -676,20 +676,12 @@ function ChatPanel({
       replyTo: replyingTo ? { user: replyingTo.user, text: replyingTo.text } : null,
       status: 'sending',
     };
-    setMessages((prev) => [...prev, messageData]);
     try {
+      // BORESHO: Tuma event tu. Usionyeshe meseji kwako mpaka event irudi.
       await safeSendCustomEvent(call, { type: 'chat-message', data: messageData });
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, status: 'sent' } : msg
-        )
-      );
-    } catch {
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, status: 'failed' } : msg
-        )
-      );
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      toast.error("Message failed to send.");
     }
     // Clear typing status immediately when sending
     if (typingTimeoutRef.current) {
@@ -762,14 +754,12 @@ function ChatPanel({
         status: 'sending',
       };
 
-      setUploadedFiles((prev) => [...prev, newFile]);
-
       try {
+        // BORESHO: Tuma event tu. Usionyeshe faili kwako mpaka event irudi.
         await safeSendCustomEvent(call, { type: 'file-upload', data: newFile });
-        setUploadedFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, status: 'sent' } : f)));
       } catch (err) {
         console.error('Failed to broadcast file upload:', err);
-        setUploadedFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, status: 'failed' } : f)));
+        toast.error("File failed to send.");
       }
     } catch (err) {
       console.error('Firebase upload error:', err);
