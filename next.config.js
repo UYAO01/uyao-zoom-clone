@@ -1,8 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  
   images: {
-    unoptimized: true, 
     remotePatterns: [
       {
         protocol: 'https',
@@ -18,16 +16,6 @@ const nextConfig = {
       },
     ],
   },
-  // --- ONGEZA HIZI MSTARI HAPA CHINI ---
-  typescript: {
-    // Hii itaruhusu build iendelee hata kama kuna makosa ya TypeScript
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    // Hii itaruhusu build iendelee hata kama kuna makosa ya uandishi (ESLint)
-    ignoreDuringBuilds: true,
-  },
-  // -------------------------------------
 };
 
 module.exports = nextConfig;

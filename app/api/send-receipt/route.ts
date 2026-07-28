@@ -2,18 +2,19 @@ import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
 // Function ya Kutuma SMS kupitia Africa's Talking
-async function sendSMS(phone: string, message: string) {
-  const username = process.env.AT_USERNAME;
-  const apiKey = process.env.AT_API_KEY;
-  if (!username || !apiKey || !phone) return;
+async function sendSMS(phone: string, message: string, username: string, apiKey: string) {
+  if (!phone) return;
 
   let formattedPhone = phone.replace(/[\s-]/g, '');
-  if (formattedPhone.startsWith('0')) {
-    formattedPhone = '+255' + formattedPhone.slice(1);
-  } else if (formattedPhone.startsWith('255')) {
-    formattedPhone = '+' + formattedPhone;
-  } else if (!formattedPhone.startsWith('+')) {
-    formattedPhone = '+' + formattedPhone;
+  // Standardize to +XXX format
+  if (formattedPhone.startsWith('0') && formattedPhone.length === 10) { // e.g., 07...
+    formattedPhone = `+255${formattedPhone.slice(1)}`;
+  } else if (formattedPhone.length === 9 && !formattedPhone.startsWith('+')) { // e.g., 7...
+    formattedPhone = `+255${formattedPhone}`;
+  } else if (formattedPhone.startsWith('255') && !formattedPhone.startsWith('+')) { // e.g., 255...
+    formattedPhone = `+${formattedPhone}`;
+  } else if (!formattedPhone.startsWith('+')) { // Fallback for other cases
+    formattedPhone = `+${formattedPhone}`;
   }
 
   try {
@@ -38,37 +39,43 @@ async function sendSMS(phone: string, message: string) {
 export async function POST(req: Request) {
   try {
     const { email, name, phone, amount, currency, description, receiptNumber, date } = await req.json();
+    
+    // *** SECURITY & BEST PRACTICE: Load environment variables on the server-side ***
+    const atUsername = process.env.AT_USERNAME;
+    const atApiKey = process.env.AT_API_KEY;
+    const emailUser = process.env.EMAIL_USER;
+    const emailPass = process.env.EMAIL_PASS;
+
+    if (!atUsername || !atApiKey || !emailUser || !emailPass) {
+      console.error('HITILAFU: Moja ya API keys (AT_USERNAME, AT_API_KEY, EMAIL_USER, EMAIL_PASS) haipo kwenye .env.local');
+      return NextResponse.json({ error: 'Server configuration missing' }, { status: 500 });
+    }
 
     // 1. Tuma SMS kwa mteja (kama namba ya simu ipo)
     if (phone) {
-      await sendSMS(phone, `UYAO: Hongera ${name}, tumepokea malipo yako ya ${currency} ${amount} kwa ajili ya ${description}. Risiti No: ${receiptNumber}. Asante!`);
-    }
-
-    // Hakikisha Email na Password zipo kwenye .env.local
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-      console.error('HITILAFU: Taarifa za EMAIL (EMAIL_USER au EMAIL_PASS) hazipo kwenye faili la .env.local');
-      return NextResponse.json({ error: 'Email configuration missing' }, { status: 500 });
+      await sendSMS(phone, `UYAO: Hongera ${name}, tumepokea malipo yako ya ${currency} ${amount} kwa ajili ya ${description}. Risiti No: ${receiptNumber}. Asante!`, atUsername, atApiKey);
     }
 
     // Setup Nodemailer kwa ajili ya Emails
     const transporter = nodemailer.createTransport({
       service: 'gmail',
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+      auth: { user: emailUser, pass: emailPass },
       tls: { rejectUnauthorized: false },
     });
 
     // Hakikisha kama Nodemailer inaweza kuingia kwenye akaunti yako (Verify Connection)
     try {
       await transporter.verify();
-    } catch (verifyError: any) {
+    } catch (verifyError: unknown) {
       console.error("Nodemailer Verification Failed:", verifyError);
-      return NextResponse.json({ error: `Imeshindwa kuingia kwenye Email: ${verifyError.message}` }, { status: 500 });
+      const message = verifyError instanceof Error ? verifyError.message : 'Unknown error';
+      return NextResponse.json({ error: `Imeshindwa kuingia kwenye Email: ${message}` }, { status: 500 });
     }
 
     // 2. Tuma Email ya Risiti kwa Mteja
     if (email) {
       const userMailOptions = {
-        from: `"UYAO Payments" <${process.env.EMAIL_USER}>`,
+        from: `"UYAO Payments" <${emailUser}>`,
         to: email,
         subject: `Risiti ya Malipo (Receipt) - ${receiptNumber}`,
         html: `
@@ -92,8 +99,8 @@ export async function POST(req: Request) {
 
     // 3. Tuma Email kwa UYAO System (Kwenye email ya admin) kuwajulisha malipo
     const adminMailOptions = {
-      from: `"UYAO System Alerts" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER, // Itatumwa kwenye email ileile ya mfumo (Admin)
+      from: `"UYAO System Alerts" <${emailUser}>`,
+      to: emailUser, // Itatumwa kwenye email ileile ya mfumo (Admin)
       subject: `Malipo Mapya Yamepokelewa - ${currency} ${amount}`,
       html: `
         <div style="font-family: Arial, sans-serif; padding: 20px; color: #333; max-width: 600px; margin: auto; border: 1px solid #e5e7eb; border-radius: 10px;">

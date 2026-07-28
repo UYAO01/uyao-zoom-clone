@@ -1,5 +1,5 @@
 "use client";
-import MeetingRoom from '@/components/MeetingRoom';
+import { MobileFirstMeetingUI } from '@/components/MeetingRoom'; // BORESHO: Tumia component mpya
 import MeetingSetup from '@/components/MeetingSetup';
 import { useGetCallById } from '@/hooks/useGetCallById';
 import { useUser } from '@clerk/nextjs';
@@ -9,11 +9,11 @@ import { StreamTheme } from '@stream-io/video-react-sdk';
 
 
 
-import { Loader } from 'lucide-react';
-import React, { use, useState } from 'react'
+import Loader from '@/components/Loader';
+import React, { useState } from 'react'
 
-const Meeting = ({ params }: { params: Promise<{ id: string }> }) => {
-  const { id } = use(params);
+const Meeting = ({ params }: { params: { id: string } }) => {
+  const { id } = params;
 
   const { isLoaded } = useUser();
   const [isSetupComplete, setIsSetupComplete] = useState(false);
@@ -29,7 +29,7 @@ const Meeting = ({ params }: { params: Promise<{ id: string }> }) => {
           {!isSetupComplete ? (
             <MeetingSetup  setIsSetupComplete={setIsSetupComplete} />
           ) : (
-            <MeetingRoom />
+            <MobileFirstMeetingUI />
           )}
         </StreamTheme>
       </StreamCall>

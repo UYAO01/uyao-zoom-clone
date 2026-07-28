@@ -43,8 +43,8 @@ const MeetingModal = ({
         <DialogTitle className={cn('text-3xl font-bold leading-[42px]', className)}>
           {title}
         </DialogTitle>
-        <DialogDescription className="sr-only">
-          A modal dialog for {title}.
+        <DialogDescription className="hidden">
+          Dialog containing meeting details and actions.
         </DialogDescription>
 
         <div className="flex flex-col gap-6">

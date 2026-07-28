@@ -8,8 +8,8 @@ import { Loader } from 'lucide-react';
 const apiKey = process.env.NEXT_PUBLIC_STREAM_API_KEY;
 
 // Client-side token provider: fetch a server route that uses server credentials to create a token.
-const createClientToken = async (): Promise<string> => {
-  const res = await fetch('/api/stream/token', { credentials: 'include' });
+const createClientToken = async (userId: string): Promise<string> => {
+  const res = await fetch(`/api/stream/token?userId=${encodeURIComponent(userId)}`, { credentials: 'include' });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body?.error || `Failed to fetch stream token: ${res.status}`);
@@ -39,11 +39,17 @@ const StreamVideoProviderWrapper = ({ children }: { children: ReactNode }) => {
             name: user.username || user.id,
             image: user.imageUrl,
           },
-          tokenProvider: createClientToken,
+          tokenProvider: () => createClientToken(user.id),
         });
 
         setVideoClient(client);
         console.log('✅ StreamVideoClient initialized');
+
+        // Cleanup function
+        return () => {
+          client.disconnectUser();
+          setVideoClient(null);
+        };
       } catch (err) {
         console.error('❌ Failed to initialize StreamVideoClient:', err);
       }
@@ -52,7 +58,7 @@ const StreamVideoProviderWrapper = ({ children }: { children: ReactNode }) => {
     initClient();
   }, [isLoaded, user]);
 
-  if (!videoClient) {
+  if (!isLoaded || !videoClient) {
     return (
       <div className="flex justify-center items-center h-screen animate-pulse text-gray-500">
         <Loader size={48} />

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter, Roboto_Mono } from "next/font/google";
 import "./globals.css";
 import { ClerkProvider } from "@clerk/nextjs";
 import '@stream-io/video-react-sdk/dist/css/styles.css';
@@ -7,14 +7,13 @@ import { ThemeProvider } from "@/src/components/theme-provider";
 import 'react-datepicker/dist/react-datepicker.css';
 import { Toaster } from "@/src/components/ui/sonner";
 
-
-const geistSans = Geist({
+const inter = Inter({
   variable: "--font-geist-sans",
   subsets: ["latin"],
-  display: "swap", // improves font loading performance
+  display: "swap",
 });
 
-const geistMono = Geist_Mono({
+const robotoMono = Roboto_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
   display: "swap",
@@ -37,7 +36,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <ClerkProvider>
         <body
-          className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+          className={`${inter.variable} ${robotoMono.variable} antialiased bg-background text-foreground`}
         >
           <ThemeProvider
             attribute="class"

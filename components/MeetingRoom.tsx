@@ -1,6 +1,6 @@
 'use client';
 
-import NextImage from 'next/image';
+import Image from 'next/image';
 
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
 import * as Dialog from '@radix-ui/react-dialog';
@@ -8,12 +8,12 @@ import * as Dialog from '@radix-ui/react-dialog';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import {
   CallStatsButton,
-  PaginatedGridLayout,
-  SpeakerLayout,
   DeviceSettings, // NEW: Import DeviceSettings
   useCallStateHooks,
   useCall,
   CallingState,
+  ParticipantView,
+  StreamVideoParticipant,
   ReactionsButton, // ADDED: Import ReactionsButton
 } from '@stream-io/video-react-sdk';
 import { Call } from '@stream-io/video-client'; // Import Call type
@@ -1150,16 +1150,16 @@ function ChatPanel({
       </Dialog.Root>
 
       {/* Delete Message Confirmation Dialog */}
-      <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open: boolean) => !open && setDeleteConfirmId(null)}>
+      <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Delete Message?
             </Dialog.Title>
-            <Dialog.Description className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-300 text-sm mb-6">
               Choose how to delete this message.
-            </Dialog.Description>
+            </p>
             <div className="flex flex-col gap-2">
               <button
                 onClick={() => deleteConfirmId !== null && handleDeleteForMe(deleteConfirmId)}
@@ -1866,12 +1866,35 @@ function VotingBox({
   );
 }
 
+// --- Sehemu #1: Component iliyoboreshwa kuonyesha mshiriki halisi kutoka Stream ---
+interface StreamParticipantTileProps {
+  participant: StreamVideoParticipant;
+}
+
+const StreamParticipantTile = ({ participant }: StreamParticipantTileProps) => {
+  // We get the state (like isMuted, isSpeaking) directly from the participant object provided by the SDK's hooks.
+  const { isSpeaking } = participant;
+  // A participant is muted if they are not publishing an audio track.
+  // This is a reliable way to check mute status.
+  const isMuted = !participant.publishedTracks.some(track => String(track) === 'audio');
+
+  return (
+    <div className={cn(
+      "relative w-full h-full bg-gray-800 rounded-xl overflow-hidden flex items-center justify-center transition-all duration-300",
+      isSpeaking && "ring-4 ring-green-500 ring-offset-2 ring-offset-black" 
+    )}>
+      {/* This component from the Stream SDK handles rendering the actual video feed */}
+      <ParticipantView participant={participant} className="w-full h-full" />
+
+    </div>
+  );
+};
 
 // --- Main MeetingRoom Component ---
-export default function MeetingRoom() {
+export const MobileFirstMeetingUI = () => {
   const useSearchParam = useSearchParams();
   const isPersonalRoom = !!useSearchParam.get('personal');
-  const [layout, setLayout] = useState<CallLayoutType>('speaker-left');
+  const [isMobile, setIsMobile] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [showWhiteboard, setShowWhiteboard] = useState(false); // NEW: State for whiteboard
@@ -1932,6 +1955,15 @@ export default function MeetingRoom() {
   const callingState = useCallCallingState();
   const localParticipant = useLocalParticipant(); // Correctly calling the hook
   const isRecording = useIsCallRecordingInProgress();
+
+  useEffect(() => {
+    const checkIsMobile = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint
+    };
+    checkIsMobile();
+    window.addEventListener('resize', checkIsMobile);
+    return () => window.removeEventListener('resize', checkIsMobile);
+  }, []);
 
   const call = useCall();
   const router = useRouter();
@@ -2175,19 +2207,7 @@ export default function MeetingRoom() {
   // Zuia 'Loader' isitokee mara kwa mara kama mtandao unayumba kidogo na kujaribu kujiunga upya
   if (callingState !== CallingState.JOINED && callingState !== CallingState.RECONNECTING) return <Loader />;
 
-  function renderCallLayout() {
-    switch (layout) {
-      case 'grid':
-        return <PaginatedGridLayout />;
-      case 'speaker-right':
-      return <SpeakerLayout participantsBarPosition="left" />;
-      case 'speaker-left':
-      default:
-        return <SpeakerLayout participantsBarPosition="right" />;
-    }
-  }
-
-  const filteredParticipants = participants.filter((p: any) =>
+  const filteredParticipants = participants.filter((p) =>
     (p.name || p.userId)?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -2223,95 +2243,15 @@ export default function MeetingRoom() {
       });
   };
 
-  // --- Recording and Action Handlers (Moved up to fix ReferenceErrors) ---
-  const startRecording = async () => {
-    if (!call) return;
-    try {
-      await call.startRecording();
-      setIsRecordingOwner(true);
-      sessionStorage.setItem(`recordingOwner_${call.id}`, 'true');
-
-      const systemMsg: ChatMessage = {
-        id: `${Date.now()}-system-start`,
-        user: "MFUMO (SYSTEM)",
-        text: `🔴 Rekodi imeanza (Recording started).`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, systemMsg]);
-      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-    }
-  };
-
-  const stopRecording = async () => {
-    if (!call) return;
-    try {
-      await call.stopRecording();
-      setIsRecordingOwner(false);
-      sessionStorage.removeItem(`recordingOwner_${call.id}`);
-
-      const systemMsg: ChatMessage = {
-        id: `${Date.now()}-system-stop`,
-        user: "MFUMO (SYSTEM)",
-        text: `⏹️ Rekodi imesimama (Recording stopped).`,
-        timestamp: new Date().toISOString(),
-      };
-      setMessages(prev => [...prev, systemMsg]);
-      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-    }
-  };
-
-  const handleStopRecordingClick = () => {
-    if (isRecordingOwner) {
-      stopRecording();
-    } else {
-      setShowStopRecordingDialog(true);
-    }
-  };
-
-  const endCall = async () => {
-    if (!call) return;
-    await (call as Call).leave();
-    router.push('/');
-  };
-
-  const unreadFilesCount = !showChat && lastReadMessageTime
-    ? uploadedFiles.filter(
-        f => f.timestamp > lastReadMessageTime && f.user !== (localParticipant?.name || localParticipant?.userId)
-      ).length
-    : 0;
-
-  const unreadCount = !showChat && lastReadMessageTime
-    ? messages.filter(
-        msg => msg.timestamp > lastReadMessageTime && msg.user !== (localParticipant?.name || localParticipant?.userId)
-      ).length
-    : 0;
-
-  const handleShowChat = () => {
-    setShowChat((prev) => {
-      if (!prev && messages.length > 0) {
-        setLastReadMessageTime(messages[messages.length - 1].timestamp);
-      }
-      return !prev;
-    });
-  };
-
-  const handleShowVotingBox = () => {
-    setShowVotingBox((prev: boolean) => !prev);
-  }
-
-  const handleClearWhiteboard = async () => {
-    if (window.confirm('Are you sure you want to clear the whiteboard for everyone? This cannot be undone.')) {
-      if (!call) return;
-      await safeSendCustomEvent(call, { type: 'whiteboard-clear', data: {} });
-    }
-  };
-
   const renderVideoControls = () => {
     // UPDATED: Calculate total notifications including files and polls
+    const unreadFilesCount = !showChat && lastReadMessageTime
+      ? uploadedFiles.filter(
+          f =>
+            f.timestamp > lastReadMessageTime &&
+            f.user !== (localParticipant?.name || localParticipant?.userId)
+        ).length
+      : 0;
     
     const activePollCount = currentPoll && currentPoll.isActive ? 1 : 0;
     const totalNotificationCount = unreadCount + unreadFilesCount + raisedHands.size + activePollCount;
@@ -2397,28 +2337,15 @@ export default function MeetingRoom() {
               </button>
             </DropdownMenu.Trigger>
             <DropdownMenu.Content
-              // BORESHO: Badilisha upana na mpangilio ili menyu isitoke nje ya kioo kwenye simu ndogo
               className="min-w-[280px] bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-2 z-[60] text-white max-h-[70vh] overflow-y-auto"
               side="top" 
               align="center" 
               sideOffset={16}
             >
-              <DropdownMenu.Label className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Layout</DropdownMenu.Label>
-              <DropdownMenu.Item onClick={() => setLayout('speaker-left')} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
-                <LayoutDashboard size={16} /> Speaker Left
-              </DropdownMenu.Item>
-              <DropdownMenu.Item onClick={() => setLayout('speaker-right')} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
-                <LayoutDashboard size={16} /> Speaker Right
-              </DropdownMenu.Item>
-              <DropdownMenu.Item onClick={() => setLayout('grid')} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
-                <LayoutDashboard size={16} /> Grid
-              </DropdownMenu.Item>
-              
-              <DropdownMenu.Separator className="h-px bg-gray-700 my-1" />
               
               <DropdownMenu.Label className="text-xs font-bold text-gray-400 px-2 py-1 uppercase">Controls</DropdownMenu.Label>
 
-              <DropdownMenu.Item onClick={() => setShowParticipants((prev: boolean) => !prev)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
+              <DropdownMenu.Item onClick={() => setShowParticipants((prev) => !prev)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
                 <List size={16} /> Participants ({participants.length})
               </DropdownMenu.Item>
 
@@ -2427,7 +2354,7 @@ export default function MeetingRoom() {
                 {(unreadCount + unreadFilesCount) > 0 && <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded-full px-1.5">{unreadCount + unreadFilesCount}</span>}
               </DropdownMenu.Item> 
 
-              <DropdownMenu.Item onClick={() => setShowTranslationPanel((p: boolean) => !p)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
+              <DropdownMenu.Item onClick={() => setShowTranslationPanel((p) => !p)} className="flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none">
                 <span>🌐</span> Translation
               </DropdownMenu.Item>
 
@@ -2447,7 +2374,7 @@ export default function MeetingRoom() {
               </DropdownMenu.Item>
 
               {/* NEW: Whiteboard button for mobile */}
-              <DropdownMenu.Item onClick={() => setShowWhiteboard((p: boolean) => !p)} className={cn("flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none", { "bg-blue-600": showWhiteboard })}>
+              <DropdownMenu.Item onClick={() => setShowWhiteboard(p => !p)} className={cn("flex items-center gap-2 px-3 py-2 hover:bg-gray-700 rounded cursor-pointer text-sm outline-none", { "bg-blue-600": showWhiteboard })}>
                 <WhiteboardIcon size={16} /> Whiteboard
               </DropdownMenu.Item>
 
@@ -2542,9 +2469,9 @@ export default function MeetingRoom() {
       />
 
       <ul className="space-y-3 overflow-y-auto flex-grow">
-        {filteredParticipants.map((participant: any) => (
+        {filteredParticipants.map((participant) => (
           <li key={participant.userId} className="flex items-center gap-3">
-            <NextImage
+            <Image
               src={
                 participant.image ??
                 `https://ui-avatars.com/api/?name=${encodeURIComponent(
@@ -2569,11 +2496,132 @@ export default function MeetingRoom() {
     </div>
   );
 
+  // --- Recording handlers ---
+  const startRecording = async () => {
+    if (!call) return;
+    try {
+      await call.startRecording();
+      setIsRecordingOwner(true);
+      sessionStorage.setItem(`recordingOwner_${call.id}`, 'true');
 
+      const systemMsg: ChatMessage = {
+        id: `${Date.now()}-system-start`,
+        user: "MFUMO (SYSTEM)",
+        text: `🔴 Rekodi imeanza (Recording started).`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+    }
+  };
+
+  const stopRecording = async () => {
+    if (!call) return;
+    try {
+      await call.stopRecording();
+      setIsRecordingOwner(false);
+      sessionStorage.removeItem(`recordingOwner_${call.id}`);
+
+      const systemMsg: ChatMessage = {
+        id: `${Date.now()}-system-stop`,
+        user: "MFUMO (SYSTEM)",
+        text: `⏹️ Rekodi imesimama (Recording stopped).`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages(prev => [...prev, systemMsg]);
+      await safeSendCustomEvent(call, { type: 'chat-message', data: systemMsg });
+    } catch (error) {
+      console.error('Failed to stop recording:', error);
+    }
+  };
+
+  const handleStopRecordingClick = () => {
+    if (isRecordingOwner) {
+      stopRecording();
+    } else {
+      setShowStopRecordingDialog(true);
+    }
+  };
+
+  const endCall = async () => {
+    if (!call) return;
+    await (call as Call).leave();
+    router.push('/');
+  };
+
+  // UPDATED: Calculate unread count to include files for the Chat button badge
+  const unreadFilesCount = !showChat && lastReadMessageTime
+    ? uploadedFiles.filter(
+        f =>
+          f.timestamp > lastReadMessageTime &&
+          f.user !== (localParticipant?.name || localParticipant?.userId)
+      ).length
+    : 0;
+  const unreadCount = !showChat && lastReadMessageTime
+    ? messages.filter(
+        msg =>
+          msg.timestamp > lastReadMessageTime &&
+          msg.user !== (localParticipant?.name || localParticipant?.userId)
+      ).length
+    : 0;
+
+  const handleShowChat = () => {
+    setShowChat((prev) => {
+      if (!prev) {
+        // Chat is being opened, mark all as read
+        if (messages.length > 0) {
+          setLastReadMessageTime(messages[messages.length - 1].timestamp);
+        }
+      }
+      return !prev;
+    });
+  };
+  
+  // Toggle Voting Box handler
+  const handleShowVotingBox = () => {
+    setShowVotingBox(prev => !prev);
+  }
+
+  const handleClearWhiteboard = async () => {
+    if (window.confirm('Are you sure you want to clear the whiteboard for everyone? This cannot be undone.')) {
+      if (!call) return;
+      await safeSendCustomEvent(call, { type: 'whiteboard-clear', data: {} });
+    }
+  };
+
+  // Find the active speaker
+  // 1. Find the first participant who is speaking.
+  // 2. If no one is speaking, find the local participant.
+  // 3. If still no one, just take the first person in the list.
+  const activeSpeaker = 
+    participants.find(p => p.isSpeaking) || 
+    participants.find(p => p.isLocalParticipant) ||
+    participants[0];
+
+  // Filter out the active speaker to get the list of other participants
+  const otherParticipants = participants.filter(p => p.sessionId !== activeSpeaker?.sessionId);
   return (
     <section className="relative flex flex-col h-[100dvh] w-full overflow-hidden bg-background text-foreground">
       {/* NEW: Render Whiteboard overlay if active */}
       {showWhiteboard && <Whiteboard onClose={() => setShowWhiteboard(false)} />}
+
+      {/* 
+        BORESHO: CSS Maalumu kwa ajili ya mpangilio wa 'speaker-left' kwenye simu.
+        Hii inailazimisha video ya mzungumzaji mkuu (speaker) kujaza eneo lote la wima (height: 100%)
+        na kutumia 'object-fit: cover' ili kuondoa nafasi tupu za juu na chini, hata kama itamaanisha
+        kukata kidogo video pembeni. Hii inatimiza ombi la mtumiaji la kutaka video "ndefu".
+      */}
+      <style dangerouslySetInnerHTML={{__html: `
+        .str-video__speaker-layout .str-video__speaker-view {
+          height: 100%;
+        }
+        .str-video__speaker-layout .str-video__speaker-view .str-video__participant-view video {
+          object-fit: cover;
+        }
+      `}} />
+
 
       {/* CSS Maalumu kwa ajili ya kurekebisha video ijae vizuri kwenye box la blue (active speaker) hasa kwenye simu */}
       <style dangerouslySetInnerHTML={{__html: `
@@ -2586,11 +2634,44 @@ export default function MeetingRoom() {
         }
       `}} />
 
-      <div className="relative flex-1 w-full flex flex-row items-center justify-center px-2 sm:px-4 pt-2 sm:pt-4 pb-2 min-h-0">
-        <div className="w-full max-w-[1200px] h-full overflow-hidden rounded-2xl">
-          {renderCallLayout()}
+      <main className="flex-1 p-2 flex gap-2 min-h-0">
+        
+        {/* MUONEKANO WA SIMU (Mobile Layout) */}
+        <div className="flex md:hidden w-full h-full gap-2">
+            {/* Safu ya Kushoto: Video Ndogo (Scrollable) */}
+            <div className="w-1/3 h-full overflow-y-auto flex flex-col gap-2">
+              {otherParticipants.map(p => (
+                <div key={p.sessionId} className="w-full aspect-video shrink-0">
+                  <StreamParticipantTile participant={p} />
+                </div>
+              ))}
+            </div>
+
+            {/* Safu ya Kulia: Video Kubwa (Mzungumzaji Mkuu) - Imepunguzwa kidogo */}
+            <div className="w-2/3">
+              {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
+            </div>
         </div>
-      </div>
+
+        {/* BORESHO: MUONEKANO WA TABLET & KOMPYUTA (Speaker-Right Layout) - Unafichwa kwenye simu */}
+        <div className="hidden md:flex w-full h-full gap-4"> {/* Desktop layout */}
+            {/* Eneo Kubwa: Video ya Mzungumzaji Mkuu */}
+            <div className="flex-1 h-full">
+              {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
+            </div>
+
+            {/* Safu ya Kulia: Washiriki wengine (Scrollable) */}
+            <div className="w-64 lg:w-72 h-full flex flex-col gap-2">
+                <div className="flex-1 overflow-y-auto flex flex-col gap-2">
+                    {otherParticipants.map(p => (
+                        <div key={p.sessionId} className="w-full aspect-video shrink-0">
+                            <StreamParticipantTile participant={p} />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+      </main>
 
       <aside
         className={cn(
@@ -2609,40 +2690,10 @@ export default function MeetingRoom() {
         
         {/* FIX: Explicit hex color for bg-gray-800 */}
         <div className="hidden md:flex bg-card p-3 rounded-xl shadow-lg gap-3 items-center justify-center flex-wrap border border-border/50">
-          <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-              {/* FIX: Explicit hex color for bg-gray-900 */}
-              <button type="button" aria-label="Change layout" className="flex items-center gap-2 px-4 py-2 rounded bg-secondary hover:bg-secondary/80 text-sm">
-                <LayoutDashboard size={16} />
-                <span className="hidden lg:inline">Layout</span>
-              </button>
-            </DropdownMenu.Trigger>
-            {/* FIX: Explicit hex color for bg-gray-900 */}
-            <DropdownMenu.Content className="bg-card text-foreground rounded shadow-lg p-2">
-              <DropdownMenu.Item
-                onClick={() => setLayout('speaker-left')}
-                className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-              >
-                Speaker Left
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                onClick={() => setLayout('speaker-right')}
-                className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-              >
-                Speaker Right
-              </DropdownMenu.Item>
-              <DropdownMenu.Item
-                onClick={() => setLayout('grid')}
-                className="px-3 py-2 hover:bg-gray-700 cursor-pointer text-sm"
-              >
-                Grid
-              </DropdownMenu.Item>
-            </DropdownMenu.Content>
-          </DropdownMenu.Root>
 
           <button
             type="button"
-            onClick={() => setShowParticipants((prev: boolean) => !prev)}
+            onClick={() => setShowParticipants((prev) => !prev)}
             // FIX: Explicit hex color for bg-gray-900
             className="flex items-center gap-2 px-4 py-2 rounded bg-secondary hover:bg-secondary/80 text-foreground text-sm cursor-pointer"
           >
@@ -2668,7 +2719,7 @@ export default function MeetingRoom() {
 
           <button
             type="button"
-            onClick={() => setShowTranslationPanel((p: boolean) => !p)}
+            onClick={() => setShowTranslationPanel((p) => !p)}
             className={cn(
               'flex items-center gap-2 px-4 py-2 rounded text-white text-sm cursor-pointer transition-colors',
               showTranslationPanel
@@ -2736,7 +2787,7 @@ export default function MeetingRoom() {
           {/* NEW: Whiteboard Button (Desktop) */}
           <button
             type="button"
-            onClick={() => setShowWhiteboard((p: boolean) => !p)}
+            onClick={() => setShowWhiteboard(p => !p)}
             className={cn('flex items-center gap-2 px-4 py-2 rounded-full text-white text-sm cursor-pointer', showWhiteboard ? 'bg-primary hover:bg-primary/80' : 'bg-secondary hover:bg-secondary/80')}
           >
             <WhiteboardIcon size={16} />
@@ -2810,13 +2861,13 @@ export default function MeetingRoom() {
       <Dialog.Root open={showStopRecordingDialog} onOpenChange={setShowStopRecordingDialog}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Stop Recording?
             </Dialog.Title>
-            <Dialog.Description className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-300 text-sm mb-6">
               You didn&apos;t start this recording. Are you sure you want to stop it for everyone?
-            </Dialog.Description>
+            </p>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowStopRecordingDialog(false)}
@@ -2842,13 +2893,13 @@ export default function MeetingRoom() {
       <Dialog.Root open={showLeaveCallDialog} onOpenChange={setShowLeaveCallDialog}>
         <Dialog.Portal>
           <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-xl p-6 z-[9999]">
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Ondoka Kwenye Kikao?
             </Dialog.Title>
-            <Dialog.Description className="text-gray-300 text-sm mb-6">
+            <p className="text-gray-300 text-sm mb-6">
               Je, una uhakika unataka kukata simu na kuondoka kwenye kikao hiki?
-            </Dialog.Description>
+            </p>
             <div className="flex gap-2 justify-end">
               <button
                 onClick={() => setShowLeaveCallDialog(false)}
@@ -3052,3 +3103,4 @@ export default function MeetingRoom() {
     </section>
   );
 };
+                         
