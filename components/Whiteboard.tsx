@@ -20,7 +20,7 @@ function SyncWithStream() {
         data: JSON.stringify(snapshot),
       });
     }
-  }, 2); // BORESHO: Hapa ni 'fps' (mara ngapi kwa sekunde), sio milliseconds. 2 fps inamaanisha kila 500ms.
+  }, 10); // Increased from 2 to 10 fps (updates every 100ms) for smoother sync
   useEffect(() => {
     if (!editor || !call) return;
 
@@ -98,7 +98,7 @@ const WhiteboardCustomUI = () => {
   };
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-2 bg-gray-800 p-2 rounded-xl shadow-lg border border-gray-700">
+    <div className="absolute top-4 left-1/2 -translate-x-1/2 z- 999 flex items-center gap-2 bg-gray-800 p-2 rounded-xl shadow-lg border border-gray-700">
       <button onClick={() => editor.undo()} className="p-2 text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition-colors" title="Undo (Turudishe Nyuma)">
         <Undo size={20} />
       </button>
@@ -121,7 +121,7 @@ export const Whiteboard = ({ onClose, ...tldrawProps }: TldrawProps & { onClose?
       {onClose && (
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-[999] p-2 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-colors shadow-lg"
+          className="absolute top-4 right-4 z-999 p-2 bg-gray-800 text-white rounded-full hover:bg-gray-700 transition-colors shadow-lg"
           aria-label="Close whiteboard"
         >
           <X size={24} />

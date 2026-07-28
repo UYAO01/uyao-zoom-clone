@@ -390,27 +390,27 @@ const EmojiPicker = ({ onEmojiSelect, onClose }: { onEmojiSelect: (emoji: string
 
   return (
     // Increased width and height for the larger selection
-    <Dialog.Content className="p-4 bg-gray-900 rounded-lg shadow-2xl w-96 z-[9999] flex flex-col" style={{ maxHeight: '60vh' }}> 
+    <Dialog.Content className="p-4 bg-gray-900 rounded-lg shadow-2xl w-96 z-9999 flex flex-col" style={{ maxHeight: '60vh' }}>
       <Dialog.Title className="text-white font-semibold text-lg">Select an emoji</Dialog.Title>
       
       {/* Search Input Area */}
-      <div className="flex items-center justify-between mb-3 mt-2 flex-shrink-0">
+      <div className="flex items-center justify-between mb-3 mt-2 shrink-0">
         <input
           type="text"
           placeholder="Search emoji by keyword..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="flex-grow rounded bg-[#1F2937] px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mr-2"
+          className="grow rounded bg-[#1F2937] px-3 py-2 text-sm text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 mr-2"
         />
         <Dialog.Close asChild>
-          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white flex-shrink-0" aria-label="Close">
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-white shrink-0" aria-label="Close">
             <X size={18} />
           </button>
         </Dialog.Close>
       </div>
 
       {/* MODIFIED: Scrollable Area for Emojis */}
-      <div className="flex-grow overflow-y-auto pr-2">
+      <div className="grow overflow-y-auto pr-2">
         {isSearching ? (
           // --- Flat Search Results ---
           <>
@@ -739,24 +739,15 @@ function ChatPanel({
     console.log(`Selected file: ${selectedFile.name} (${selectedFile.size} bytes)`);
 
     try {
-      const data = new FormData();
-      data.append('file', selectedFile);
+      // Create a reference in Firebase Storage
+      const storageRef = ref(firebaseStorage, `chat_files/${Date.now()}_${selectedFile.name}`);
 
-      console.log('Uploading to server...');
-      
-      const res = await fetch('/api/upload-simple', {
-        method: 'POST',
-        body: data,
-        credentials: 'include',
-      });
+      // Upload the file
+      console.log('Uploading to Firebase Storage...');
+      await uploadBytes(storageRef, selectedFile);
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Upload failed with status: ${res.status}`);
-      }
-
-      const { url, name, publicId } = await res.json();
-
+      // Get the download URL
+      const url = await getDownloadURL(storageRef);
       console.log(`Upload successful: ${url}`);
 
       const fileId = `${new Date().toISOString()}-${localParticipant?.userId || 'anon'}-file`;
@@ -764,30 +755,27 @@ function ChatPanel({
       const newFile: UploadedFile = {
         id: fileId,
         user: localParticipant?.name || localParticipant?.userId || 'Anonymous',
-        name: name,
+        name: selectedFile.name, // Use original file name
         url,
-        publicId,
+        publicId: storageRef.fullPath, // Use the full path as a publicId for potential deletion
         timestamp: new Date().toISOString(),
-        status: 'sending', // ADDED: Initial status
+        status: 'sending',
       };
 
       setUploadedFiles((prev) => [...prev, newFile]);
 
       try {
         await safeSendCustomEvent(call, { type: 'file-upload', data: newFile });
-        setUploadedFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, status: 'sent' } : f))
-        );
+        setUploadedFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, status: 'sent' } : f)));
       } catch (err) {
         console.error('Failed to broadcast file upload:', err);
-        setUploadedFiles((prev) =>
-          prev.map((f) => (f.id === fileId ? { ...f, status: 'failed' } : f))
-        );
+        setUploadedFiles((prev) => prev.map((f) => (f.id === fileId ? { ...f, status: 'failed' } : f)));
       }
     } catch (err) {
-      console.error('Upload error:', err);
+      console.error('Firebase upload error:', err);
       alert(`Upload failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
+      // Clear the file input so the same file can be selected again
       e.target.value = '';
     }
   };
@@ -805,7 +793,7 @@ function ChatPanel({
 
   return (
     <div
-      className="fixed bottom-[110px] sm:bottom-[130px] left-2 sm:left-6 z-[70] w-80 max-w-[95vw] flex flex-col pointer-events-none"
+      className="fixed bottom-27.5 sm:bottom-32.5 left-2 sm:left-6 z-70 w-80 max-w-[95vw] flex flex-col pointer-events-none"
     >
       {/* Header with Three-Dot Menu */} 
       <div className="flex items-center justify-between bg-card/80 rounded-t-2xl p-3 border-b border-border pointer-events-auto text-foreground">
@@ -823,7 +811,7 @@ function ChatPanel({
             </DropdownMenu.Trigger>
             <DropdownMenu.Portal>
               <DropdownMenu.Content
-                className="min-w-[140px] bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-1 z-[9999]"
+                className="min-w-35 bg-gray-800 border border-gray-700 rounded-lg shadow-lg p-1 z-9999"
                 sideOffset={5}
               >
                 <DropdownMenu.Item asChild>
@@ -917,8 +905,7 @@ function ChatPanel({
                   ) : (
                     // Normal message
                     <div
-                      className={cn(
-                        "px-4 py-2 rounded-2xl text-sm max-w-[70%] break-words shadow",
+                      className={cn("px-4 py-2 rounded-2xl text-sm max-w-[70%] wrap-break-word shadow",
                         // FIX: Use explicit hex colors
                         msg.user === (localParticipant?.name || localParticipant?.userId) 
                           ? "bg-primary text-primary-foreground rounded-br-md" 
@@ -1008,8 +995,7 @@ function ChatPanel({
                       <a
                         href={file.url}
                         target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-blue-400 hover:underline flex-grow text-sm truncate"
+                        rel="noopener noreferrer" className="text-blue-400 hover:underline grow text-sm truncate"
                         title="View file in new tab"
                       >
                         {file.name}
@@ -1084,7 +1070,7 @@ function ChatPanel({
             onChange={handleInputChange} // UPDATED: Use handleInputChange
             onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
             placeholder="Send a message..."
-            className="flex-grow bg-transparent outline-none text-sm text-foreground placeholder-muted-foreground"
+            className="grow bg-transparent outline-none text-sm text-foreground placeholder-muted-foreground"
           />
           <Dialog.Root open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
             <Dialog.Trigger asChild>
@@ -1098,7 +1084,7 @@ function ChatPanel({
               </button>
             </Dialog.Trigger>
             <Dialog.Portal>
-              <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998] flex items-center justify-center">
+              <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998 flex items-center justify-center">
                 <EmojiPicker onEmojiSelect={sendEmoji} onClose={() => setShowEmojiPicker(false)} />
               </Dialog.Overlay>
             </Dialog.Portal>
@@ -1123,8 +1109,8 @@ function ChatPanel({
       {/* Clear Chat Confirmation Dialog */}
       <Dialog.Root open={showClearDialog} onOpenChange={setShowClearDialog}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-9999">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Clear Chat?
             </Dialog.Title>
@@ -1152,8 +1138,8 @@ function ChatPanel({
       {/* Delete Message Confirmation Dialog */}
       <Dialog.Root open={deleteConfirmId !== null} onOpenChange={(open) => !open && setDeleteConfirmId(null)}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-9999">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Delete Message?
             </Dialog.Title>
@@ -1296,7 +1282,7 @@ function VotingBox({
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
   
   const zoomModal = zoomedImage && (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90 p-4" onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}>
+    <div className="fixed inset-0 z-9999 flex items-center justify-center bg-black/90 p-4" onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}>
        <div className="relative max-w-full max-h-full flex flex-col items-center">
           <img src={zoomedImage} alt="Zoomed Candidate" className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-[0_0_40px_rgba(255,255,255,0.2)] border border-gray-700" onClick={(e) => e.stopPropagation()} />
           <button className="absolute -top-4 -right-4 p-2 bg-red-600 text-white rounded-full hover:bg-red-700 shadow-lg transition-transform hover:scale-110" onClick={(e) => { e.stopPropagation(); setZoomedImage(null); }}>
@@ -1508,9 +1494,9 @@ function VotingBox({
       const poll = currentPoll;
       if (poll && !poll.isActive) {
           // Poll is ended, show results and an option to clear
-          return (
-              <>
-              <div className="p-5 bg-gradient-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] transition-all duration-300 pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
+ return (
+ <>
+ <div className="p-5 bg-linear-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] transition-all duration-300 pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
                   <div className="flex justify-between items-start mb-3">
                     <h3 className="text-white font-bold text-lg flex items-center gap-2"><Vote size={20} className="text-blue-400"/> Matokeo (Results)</h3>
                     <button type="button" onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close" title="Close"><X size={18} /></button>
@@ -1612,15 +1598,15 @@ function VotingBox({
                       Clear Results & Start New Poll
                   </button>
               </div>
-                      {zoomModal}
-                      </>
+ {zoomModal}
+ </>
           );
       }
     
-    // Poll Creation UI
+ // Poll Creation UI
     return (
       <>
-      <div className="p-5 bg-gradient-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
+      <div className="p-5 bg-linear-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
         <div className="flex justify-between items-center mb-4 border-b border-gray-700 pb-3">
           <h3 className="text-white font-bold flex items-center gap-2"><Vote size={18} className="text-blue-400"/> Andaa Uchaguzi (Poll)</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close" title="Close"><X size={18} /></button>
@@ -1676,7 +1662,7 @@ function VotingBox({
                   placeholder={`Jina la Mgombea ${index + 1}`}
                   value={option.text}
                   onChange={(e) => handleOptionChange(index, e.target.value)}
-                  className="flex-grow rounded-lg bg-gray-900 border border-gray-600 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+                  className="grow rounded-lg bg-gray-900 border border-gray-600 px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
                 />
                 {newOptions.length > 2 && (
                   <button type="button" onClick={() => removeOption(index)} className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity shadow-md" aria-label="Remove option">
@@ -1689,7 +1675,7 @@ function VotingBox({
             <label className="flex items-center justify-between p-2 rounded-lg bg-gray-700 hover:bg-gray-600 text-xs cursor-pointer border border-dashed border-gray-500 transition-colors">
                 <div className="flex items-center gap-2">
                     {option.file ? (
-                        <span className="text-green-400 font-bold flex items-center gap-1 truncate max-w-[200px]">
+                        <span className="text-green-400 font-bold flex items-center gap-1 truncate max-w-50">
                             <Check size={14} /> Picha Imewekwa
                         </span>
                     ) : (
@@ -1719,7 +1705,7 @@ function VotingBox({
           type="button"
           onClick={startPoll}
           disabled={!pollPosition.trim() || newOptions.filter(o => o.text.trim() !== '').length < 2 || isUploading}
-          className="w-full py-3 rounded-xl bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black uppercase tracking-wider disabled:from-gray-700 disabled:to-gray-600 disabled:text-gray-400 shadow-[0_0_15px_rgba(37,99,235,0.4)] disabled:shadow-none transition-all flex justify-center items-center gap-2"
+          className="w-full py-3 rounded-xl bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-black uppercase tracking-wider disabled:from-gray-700 disabled:to-gray-600 disabled:text-gray-400 shadow-[0_0_15px_rgba(37,99,235,0.4)] disabled:shadow-none transition-all flex justify-center items-center gap-2"
         >
           {isUploading ? <Loader /> : 'Anzisha Uchaguzi'}
         </button>
@@ -1736,7 +1722,7 @@ function VotingBox({
     const poll = currentPoll;
     return (
       <>
-      <div className="p-5 bg-gradient-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] transition-all duration-300 pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
+      <div className="p-5 bg-linear-to-b from-gray-900 to-gray-800 rounded-xl shadow-2xl w-80 max-w-[90vw] transition-all duration-300 pointer-events-auto border border-gray-700 max-h-[60dvh] overflow-y-auto">
         <div className="flex justify-between items-start mb-2">
           <h3 className="text-blue-400 font-black text-sm uppercase tracking-widest bg-blue-900/30 px-3 py-1 rounded-lg border border-blue-500/30">{poll.position || 'Uchaguzi'}</h3>
           <button type="button" onClick={onClose} className="text-gray-400 hover:text-white" aria-label="Close" title="Close"><X size={18} /></button>
@@ -1797,8 +1783,8 @@ function VotingBox({
                   >
                     {/* Visual bar for results (shows up after voting, or if not yet voted and poll is active) */}
                     {(hasVoted || !poll.isActive || timeRemaining === 0) && (
-                      <div
-                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-blue-600 to-blue-400 opacity-20"
+ <div
+ className="absolute top-0 left-0 h-full bg-linear-to-r from-blue-600 to-blue-400 opacity-20"
                         style={{ width: `${percentage}%` }}
                       ></div>
                     )}
@@ -1892,7 +1878,7 @@ const StreamParticipantTile = ({ participant }: StreamParticipantTileProps) => {
 
 // --- Main MeetingRoom Component ---
 export const MobileFirstMeetingUI = () => {
-  const useSearchParam = useSearchParams();
+ const useSearchParam = useSearchParams();
   const isPersonalRoom = !!useSearchParam.get('personal');
   const [isMobile, setIsMobile] = useState(false);
   const [showParticipants, setShowParticipants] = useState(false);
@@ -2327,7 +2313,7 @@ export const MobileFirstMeetingUI = () => {
         <div className="md:hidden">
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
-              <button type="button" className="flex flex-col items-center justify-center p-2.5 rounded-full bg-secondary hover:bg-secondary/80 text-foreground relative">
+ <button type="button" className="flex flex-col items-center justify-center p-2.5 rounded-full bg-secondary hover:bg-secondary/80 text-foreground relative">
                 <MoreVertical size={20} />
                 {totalNotificationCount > 0 && (
                   <span className="absolute top-0 right-0 bg-destructive text-destructive-foreground text-[10px] font-bold rounded-full h-4 w-4 flex items-center justify-center">
@@ -2336,8 +2322,8 @@ export const MobileFirstMeetingUI = () => {
                 )}
               </button>
             </DropdownMenu.Trigger>
-            <DropdownMenu.Content
-              className="min-w-[280px] bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-2 z-[60] text-white max-h-[70vh] overflow-y-auto"
+ <DropdownMenu.Content
+ className="min-w-70 bg-gray-800 border border-gray-700 rounded-2xl shadow-2xl p-2 z-60 text-white max-h-[70vh] overflow-y-auto"
               side="top" 
               align="center" 
               sideOffset={16}
@@ -2468,7 +2454,7 @@ export const MobileFirstMeetingUI = () => {
         className="mb-4 rounded bg-input px-3 py-2 text-sm text-foreground placeholder-muted-foreground"
       />
 
-      <ul className="space-y-3 overflow-y-auto flex-grow">
+      <ul className="space-y-3 overflow-y-auto grow">
         {filteredParticipants.map((participant) => (
           <li key={participant.userId} className="flex items-center gap-3">
             <Image
@@ -2600,10 +2586,10 @@ export const MobileFirstMeetingUI = () => {
     participants.find(p => p.isLocalParticipant) ||
     participants[0];
 
-  // Filter out the active speaker to get the list of other participants
+ // Filter out the active speaker to get the list of other participants
   const otherParticipants = participants.filter(p => p.sessionId !== activeSpeaker?.sessionId);
   return (
-    <section className="relative flex flex-col h-[100dvh] w-full overflow-hidden bg-background text-foreground">
+    <section className="relative flex flex-col h-dvh w-full overflow-hidden bg-background text-foreground">
       {/* NEW: Render Whiteboard overlay if active */}
       {showWhiteboard && <Whiteboard onClose={() => setShowWhiteboard(false)} />}
 
@@ -2632,6 +2618,9 @@ export const MobileFirstMeetingUI = () => {
         .str-video__participant-view--active.str-video__participant-view--speaking {
           box-shadow: 0 0 0 3px #2563eb !important; /* Rangi nzuri ya blue inayoonekana mtu akiongea */
         }
+        .main-speaker-container .str-video__participant-view video {
+          object-fit: cover;
+        }
       `}} />
 
       <main className="flex-1 p-2 flex gap-2 min-h-0">
@@ -2648,7 +2637,7 @@ export const MobileFirstMeetingUI = () => {
             </div>
 
             {/* Safu ya Kulia: Video Kubwa (Mzungumzaji Mkuu) - Imepunguzwa kidogo */}
-            <div className="w-2/3">
+            <div className="w-2/3 main-speaker-container">
               {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
             </div>
         </div>
@@ -2656,7 +2645,7 @@ export const MobileFirstMeetingUI = () => {
         {/* BORESHO: MUONEKANO WA TABLET & KOMPYUTA (Speaker-Right Layout) - Unafichwa kwenye simu */}
         <div className="hidden md:flex w-full h-full gap-4"> {/* Desktop layout */}
             {/* Eneo Kubwa: Video ya Mzungumzaji Mkuu */}
-            <div className="flex-1 h-full">
+            <div className="flex-1 h-full main-speaker-container">
               {activeSpeaker && <StreamParticipantTile participant={activeSpeaker} />}
             </div>
 
@@ -2675,7 +2664,7 @@ export const MobileFirstMeetingUI = () => {
 
       <aside
         className={cn(
-          'fixed top-0 right-0 h-full w-[300px] shadow-lg transition-transform duration-300 ease-in-out z-[55]',
+          'fixed top-0 right-0 h-full w-75 shadow-lg transition-transform duration-300 ease-in-out z-55',
           {
             'translate-x-0': showParticipants,
             'translate-x-full': !showParticipants,
@@ -2840,8 +2829,8 @@ export const MobileFirstMeetingUI = () => {
 
       {/* --- Enable Mic Prompt (New) --- */}
       {showEnableMicPrompt && (
-        // FIX: Explicit hex color for bg-gray-800 and bg-blue-600
-        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-[60] bg-card p-4 rounded-lg shadow-lg w-80 text-center text-foreground">
+    // FIX: Explicit hex color for bg-gray-800 and bg-blue-600
+        <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-60 bg-card p-4 rounded-lg shadow-lg w-80 text-center text-foreground">
           <p className="text-sm mb-2">
             To enable your microphone, please allow access in the browser prompt.
           </p>
@@ -2860,8 +2849,8 @@ export const MobileFirstMeetingUI = () => {
       {/* Stop Recording Confirmation Dialog */}
       <Dialog.Root open={showStopRecordingDialog} onOpenChange={setShowStopRecordingDialog}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-9999">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Stop Recording?
             </Dialog.Title>
@@ -2892,8 +2881,8 @@ export const MobileFirstMeetingUI = () => {
       {/* Leave Call Confirmation Dialog */}
       <Dialog.Root open={showLeaveCallDialog} onOpenChange={setShowLeaveCallDialog}>
         <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+          <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-9999">
             <Dialog.Title className="text-lg font-bold text-white mb-2">
               Ondoka Kwenye Kikao?
             </Dialog.Title>
@@ -2924,8 +2913,8 @@ export const MobileFirstMeetingUI = () => {
           {/* Settings Modal */}
         <Dialog.Root open={showSettings} onOpenChange={setShowSettings}>
             <Dialog.Portal>
-                <Dialog.Overlay className="fixed inset-0 bg-background/50 z-[9998]" />
-                <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-[9999]">
+                <Dialog.Overlay className="fixed inset-0 bg-background/50 z-9998" />
+                <Dialog.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-80 bg-gray-800 border border-gray-700 rounded-lg shadow-2xl p-6 z-9999">
                     <Dialog.Title className="text-lg font-bold text-white mb-4">
                         Settings
                     </Dialog.Title>
@@ -3077,7 +3066,7 @@ export const MobileFirstMeetingUI = () => {
 
       {/* Translation Panel (floating) */}
       {showTranslationPanel && (
-        <div className="fixed bottom-[110px] sm:bottom-[130px] right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
+        <div className="fixed bottom-27.5 sm:bottom-32.5 right-2 sm:right-6 z-70 flex flex-col pointer-events-none">
           <div className="pointer-events-auto">
             <TranslationPanel
               messages={messages}
@@ -3089,7 +3078,7 @@ export const MobileFirstMeetingUI = () => {
 
       {/* --- Voting Box Render (Updated to pass PDF function) --- */}
       {showVotingBox && (
-        <div className="fixed bottom-[110px] sm:bottom-[130px] right-2 sm:right-6 z-[70] flex flex-col pointer-events-none">
+        <div className="fixed bottom-27.5 sm:bottom-32.5 right-2 sm:right-6 z-70 flex flex-col pointer-events-none">
           <VotingBox
             call={call}
             isCreator={isCreator}
@@ -3103,4 +3092,4 @@ export const MobileFirstMeetingUI = () => {
     </section>
   );
 };
-                         
+                       
