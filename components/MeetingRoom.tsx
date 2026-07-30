@@ -1886,6 +1886,8 @@ export const MobileFirstMeetingUI = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showLeaveCallDialog, setShowLeaveCallDialog] = useState(false);
   const [notificationSound, setNotificationSound] = useState<string>(DEFAULT_NOTIFICATION_SOUND);
+  // ADDED: State to manage notification sound mute status
+  const [isNotificationSoundMuted, setIsNotificationSoundMuted] = useState(false);
   const [notificationVolume, setNotificationVolume] = useState(0.5);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isRecordingOwner, setIsRecordingOwner] = useState(false);
@@ -1895,7 +1897,7 @@ export const MobileFirstMeetingUI = () => {
   // BORESHO: State ya kufuatilia ni mshiriki gani amechaguliwa (pinned) kuonekana kwenye skrini kubwa
   const [pinnedParticipant, setPinnedParticipant] = useState<StreamVideoParticipant | null>(null);
   const soundSettingsRef = useRef({ sound: DEFAULT_NOTIFICATION_SOUND, volume: 0.5, muted: false });
-
+  
   useEffect(() => {
     soundSettingsRef.current = { sound: notificationSound, volume: notificationVolume, muted: isSoundMuted };
   }, [notificationSound, notificationVolume, isSoundMuted]);
@@ -2033,16 +2035,77 @@ export const MobileFirstMeetingUI = () => {
       }
     };
     
+    // NEW: Handler for chat messages and file uploads
+    const handleCustomMessageEvent = (event: unknown) => {
+      if (!isCustomEventType(event)) return;
+      const ev = event as CustomEventType;
+      const data = ev.custom.data as ChatMessage | UploadedFile | { messageId: string; deletedBy: string; isFile?: boolean } | { userId: string } | undefined;
+
+      // Ignore events from self if they are just echoes.
+      // For chat messages and file uploads, we want to update the local state
+      // only when the event comes back from the server, ensuring consistency.
+      // The sender's UI will update when this event is processed.
+
+      if (ev.custom.type === 'chat-message') {
+        const msg = data as ChatMessage;
+        setMessages(prev => {
+          // Check if message already exists (e.g., if it was optimistically added)
+          if (prev.some(m => m.id === msg.id)) {
+            return prev.map(m => m.id === msg.id ? { ...msg, status: 'sent' } : m);
+          }
+          return [...prev, { ...msg, status: 'sent' }];
+        });
+        if (ev.user.id !== call.currentUserId) {
+          playNotificationSound();
+        }
+      } else if (ev.custom.type === 'file-upload') {
+        const file = data as UploadedFile;
+        setUploadedFiles(prev => {
+          if (prev.some(f => f.id === file.id)) {
+            return prev.map(f => f.id === file.id ? { ...file, status: 'sent' } : f);
+          }
+          return [...prev, { ...file, status: 'sent' }];
+        });
+        if (ev.user.id !== call.currentUserId) {
+          playNotificationSound();
+        }
+      } else if (ev.custom.type === 'message-deleted') {
+        const deleteData = data as { messageId: string; deletedBy: string; isFile?: boolean };
+        if (deleteData.isFile) {
+          setUploadedFiles(prev => prev.map(f => f.id === deleteData.messageId ? { ...f, deleted: true, deletedAt: new Date().toISOString() } : f));
+        } else {
+          setMessages(prev => prev.map(m => m.id === deleteData.messageId ? { ...m, deleted: true, deletedAt: new Date().toISOString() } : m));
+        }
+        if (ev.user.id !== call.currentUserId) {
+          playNotificationSound();
+        }
+      } else if (ev.custom.type === 'typing-start') {
+        if (ev.user.id !== call.currentUserId) {
+          setTypingUsers(prev => new Set(prev).add(ev.user.name));
+        }
+      } else if (ev.custom.type === 'typing-stop') {
+        if (ev.user.id !== call.currentUserId) {
+          setTypingUsers(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(ev.user.name);
+            return newSet;
+          });
+        }
+      }
+    };
+
     call.on('call.ended', handleCallEnded);
     call.on('custom', handleRaiseHandEvent);
     call.on('custom', handleVotingEvent); // LISTENING FOR VOTING EVENTS
+    call.on('custom', handleCustomMessageEvent); // NEW: Listen for chat/file/delete/typing events
 
     return () => {
       call.off('call.ended', handleCallEnded);
       call.off('custom', handleRaiseHandEvent);
       call.off('custom', handleVotingEvent);
+      call.off('custom', handleCustomMessageEvent); // NEW: Cleanup
     };
-  }, [call, router, playNotificationSound]);
+  }, [call, router, playNotificationSound, setMessages, setUploadedFiles, setTypingUsers]); // Added dependencies
 
   // ... (Other useEffects for mic/chat)
 
@@ -2124,6 +2187,14 @@ export const MobileFirstMeetingUI = () => {
       });
   };
 
+  const toggleNotificationSoundMute = () => {
+      setIsNotificationSoundMuted(prev => {
+          const newState = !prev;
+          localStorage.setItem('isNotificationSoundMuted', String(newState));
+          return newState;
+      });
+  };
+
   const renderVideoControls = () => {
     // UPDATED: Calculate total notifications including files and polls
     const unreadFilesCount = !showChat && lastReadMessageTime
@@ -2157,10 +2228,6 @@ export const MobileFirstMeetingUI = () => {
       setIsCameraMuted(!isCameraMuted);
     };
 
-    const toggleSoundMute = () => {
-        setIsSoundMuted(!isSoundMuted);
-    };
-
     return (
       <div className="flex items-center justify-center w-full">
         {/* Kundi la Vitufe vya Kawaida vilivyotenganishwa na Kukata Simu */}
@@ -2185,18 +2252,6 @@ export const MobileFirstMeetingUI = () => {
           )}
         >
           {isCameraMuted ? <VideoOff size={20} /> : <Video size={20} />}
-        </button>
-
-        <button
-          type="button"
-          onClick={toggleSoundMute}
-          className={cn( 
-            'flex flex-col items-center justify-center p-2.5 rounded-full text-foreground transition-all',
-            isSoundMuted ? 'bg-[#DC2626] hover:bg-[#B91C1C] text-white' : 'bg-[#2d2d2d] hover:bg-gray-700'
-          )}
-          title={isSoundMuted ? 'Unmute Notifications' : 'Mute Notifications'}
-        >
-          {isSoundMuted ? <BellOff size={20} /> : <Bell size={20} />}
         </button>
 
         {/* ADDED: Reactions Button (Desktop) */}
@@ -2891,6 +2946,24 @@ export const MobileFirstMeetingUI = () => {
                             className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer"
                         />
                     </div>
+
+                    {/* Mute Notifications Toggle */}
+                    <div className="mb-4 flex items-center justify-between">
+                        <label htmlFor="muteNotificationsToggle" className="text-sm font-medium text-gray-300">
+                            Mute All Notifications
+                        </label>
+                        <button
+                            id="muteNotificationsToggle"
+                            onClick={toggleNotificationSoundMute}
+                            className={`relative inline-flex h-6 w-12 items-center rounded-full transition-colors ${isNotificationSoundMuted ? 'bg-red-500' : 'bg-blue-600'}`}
+                        >
+                            <span
+                                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${isNotificationSoundMuted ? 'translate-x-7' : 'translate-x-1'}`}
+                            />
+                        </button>
+                    </div>
+
+
                     <div className="mb-4 flex items-center gap-2">
                         <button
                             type="button"

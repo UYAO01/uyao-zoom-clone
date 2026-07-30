@@ -1248,7 +1248,7 @@ const PersonalRoom = () => {
 
       // 3. Tuma barua pepe (Email) ya uthibitisho kwa mwombaji
       try {
-        await fetch('/api/send-email', {
+        await fetch('/api/send-receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1256,7 +1256,12 @@ const PersonalRoom = () => {
             name: user.fullName || 'Mwombaji',
             jobPosition: applyingJob.jobPosition,
             companyName: applyingJob.companyName,
-            phone: finalAppPhone.trim()
+            phone: finalAppPhone.trim(),
+            amount: 0, // Hakuna malipo hapa
+            currency: 'TZS',
+            description: `Uthibitisho wa Maombi ya Kazi: ${applyingJob.jobPosition}`,
+            receiptNumber: `APP-${Math.floor(Math.random() * 1000000)}`,
+            date: new Date().toISOString()
           })
         });
       } catch (emailError) {
@@ -1644,7 +1649,7 @@ const PersonalRoom = () => {
 
     // Tuma notification na Email / SMS ya Risiti
     if (user?.id) {
-      addDoc(collection(db, 'notifications'), {
+      void addDoc(collection(db, 'notifications'), {
         userId: user.id,
         title: 'Kifurushi Kimeamilishwa (Subscription Active)',
         message: `Umefanikiwa kulipia kifurushi cha ${title}. Risiti na maelezo yametumwa kwenye barua pepe yako.`,
@@ -1656,7 +1661,7 @@ const PersonalRoom = () => {
     }
 
     try {
-      const res = await fetch('/api/send-receipt', {
+      const res = await fetch('/api/send-receipt', { // BORESHO: Tumia endpoint salama
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -1671,7 +1676,9 @@ const PersonalRoom = () => {
         })
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Imeshindwa kutuma risiti');
+      if (!res.ok) {
+        throw new Error(data.error || 'Imeshindwa kutuma risiti');
+      }
     } catch (error: any) {
       console.error(error);
       // Hapa sasa itakuonyesha kosa halisi lililofanya ishindwe kutuma
@@ -1723,7 +1730,7 @@ const PersonalRoom = () => {
 
       // Tuma Risiti (SMS, Email Mteja, Email UYAO)
       try {
-        const res = await fetch('/api/send-receipt', {
+        const res = await fetch('/api/send-receipt', { // BORESHO: Tumia endpoint salama
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1738,7 +1745,9 @@ const PersonalRoom = () => {
           })
         });
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Imeshindwa kutuma risiti');
+        if (!res.ok) {
+          throw new Error(data.error || 'Imeshindwa kutuma risiti');
+        }
       } catch (error: any) {
         console.error(error);
         toast.error(`Risiti Imefeli: ${error.message}`);
@@ -2108,7 +2117,7 @@ const PersonalRoom = () => {
                                 <p className="text-3xl font-black text-red-400 animate-pulse">{hoursLeft}h {minutesLeft}m</p>
                                 <p className="text-[10px] text-gray-400 mt-1">Usipolipia, kikao kitasitishwa moja kwa moja masaa 2 kabla.</p>
                               </div>
-                              <button onClick={() => handleInterviewPayment(app.id)} disabled={isProcessingPayment === app.id} className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-xl transition-all w-full shadow-lg disabled:opacity-50 disabled:cursor-wait mt-1">
+                              <button onClick={() => handleInterviewPayment(app.id)} disabled={isProcessingPayment === app.id} className="px-6 py-3 bg-liner-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-xl transition-all w-full shadow-lg disabled:opacity-50 disabled:cursor-wait mt-1">
                                 {isProcessingPayment === app.id ? 'Inachakata (Processing)...' : 'Lipa Sasa (Pay TZS 5,000)'}
                               </button>
                             </div>
@@ -2153,7 +2162,7 @@ const PersonalRoom = () => {
 
         {/* Sehemu ya Kutafuta Kazi */}
         <div className="flex flex-col md:flex-row gap-4 w-full">
-          <div className="relative flex-grow">
+          <div className="grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
             <input 
               type="text" 
@@ -2163,7 +2172,7 @@ const PersonalRoom = () => {
               className="w-full rounded-lg bg-gray-800 py-3 pl-10 pr-4 text-white border border-gray-700 focus:border-blue-500 focus:outline-none shadow-sm"
             />
           </div>
-          <div className="relative flex-shrink-0">
+          <div className="shrink-0">
             <select 
               value={jobTypeFilter}
               onChange={(e) => setJobTypeFilter(e.target.value)}
@@ -2233,7 +2242,7 @@ const PersonalRoom = () => {
                         {hasApplied && <p className="text-sm text-green-400 mt-1 font-bold flex items-center gap-1"><Check size={14}/> Umeshaomba</p>}
                       </div>
                     </div>
-                    <div className="flex-shrink-0 w-full md:w-auto">
+                    <div className="shrink-0 w-full md:w-auto">
                       <button className="w-full md:w-auto px-8 py-3 rounded-xl bg-blue-600/20 text-blue-400 border border-blue-600/50 group-hover:bg-blue-600 group-hover:text-white font-bold transition-all whitespace-nowrap flex items-center justify-center gap-2">
                         Soma Zaidi <ChevronRight size={18} />
                       </button>
@@ -2245,10 +2254,10 @@ const PersonalRoom = () => {
               // Sehemu ya tangazo itakayokuwa PDF
               const JobPoster = (
                 <div className="w-full overflow-hidden flex justify-center pb-6" style={{ backgroundColor: '#f8fafc', color: '#1f2937', borderColor: '#f8fafc', boxShadow: 'none', textShadow: 'none' }}>
-                  <div id={`job-poster-${job.id}`} className="w-[800px] min-h-[1131px] font-sans relative overflow-hidden shrink-0 flex flex-col responsive-poster" style={{ backgroundColor: '#f8fafc', color: '#1f2937' }}>
+                  <div id={`job-poster-${job.id}`} className="w-200 min-h-282.75 font-sans relative overflow-hidden shrink-0 flex flex-col responsive-poster" style={{ backgroundColor: '#f8fafc', color: '#1f2937' }}>
                     
                     {/* A: Logo na Jina la Kampuni (Juu Kushoto) */}
-                    <div className="absolute top-10 left-6 z-20 flex flex-col items-center w-[220px]">
+                    <div className="absolute top-10 left-6 z-20 flex flex-col items-center w-55">
                       {job.logoUrl ? (
                         <img src={job.logoUrl} alt="Logo" className="w-28 h-28 object-contain" />
                       ) : (
@@ -2266,7 +2275,7 @@ const PersonalRoom = () => {
                     </div>
 
                     {/* B: NAFASI ZA KAZI & WE ARE HIRING */}
-                    <div className="relative z-10 pt-16 ml-[190px] flex flex-col items-center justify-center pr-10">
+                    <div className="relative z-10 pt-16 ml-47.5 flex flex-col items-center justify-center pr-10">
                       <div className="relative px-8 py-3 mb-4" style={{ backgroundColor: '#1e3a8a' }}>
                         {/* Nusu Mstatili wa Gold (Juu Kulia) */}
                         <div className="absolute -top-3 -right-3 w-8 h-8 border-t-4 border-r-4 border-yellow-500" style={{ borderColor: '#eab308' }}></div>
@@ -2281,14 +2290,14 @@ const PersonalRoom = () => {
                     <div className="relative z-10 px-12 mb-8">
                       <div className="relative">
                         {/* Urembo wa kivuli cha bluu nyuma ya picha */}
-                        <div className="absolute inset-0 bg-blue-600 rounded-[2rem] transform translate-x-3 translate-y-3 opacity-20" style={{ backgroundColor: '#2563eb' }}></div>
+                        <div className="absolute inset-0 bg-blue-600 rounded-4xl transform translate-x-3 translate-y-3 opacity-20" style={{ backgroundColor: '#2563eb' }}></div>
                         {/* Picha itatumia ile aliyoupload, ikikosekana itaita ile function yetu na kujaza kulingana na jina la kazi */}
-                        <img src={job.teamImageUrl || getFallbackImage(job.jobPosition)} alt="Team" className="relative w-full h-[320px] object-cover rounded-[2rem] border-4" style={{ borderColor: '#ffffff' }} />
+                        <img src={job.teamImageUrl || getFallbackImage(job.jobPosition)} alt="Team" className="relative w-full h-80 object-cover rounded-4xl border-4" style={{ borderColor: '#ffffff' }} />
                       </div>
                     </div>
 
                     {/* Taarifa Zilizobaki */}
-                    <div className="px-12 relative z-10 flex-grow pb-10">
+                    <div className="px-12 relative z-10 grow pb-10">
                       
                       {/* D: Nafasi Husika ya Kazi (Na Icon ya Briefcase kwenye kiduara) */}
                       <div className="mb-6 p-5 rounded-2xl border" style={{ backgroundColor: '#ffffff', borderColor: '#f3f4f6' }}>
@@ -2298,7 +2307,7 @@ const PersonalRoom = () => {
                           </div>
                           <h3 className="text-2xl font-black uppercase tracking-widest" style={{ color: '#1f2937' }}>Nafasi Husika Ya Kazi</h3>
                         </div>
-                        <div className="ml-[72px] flex items-center flex-wrap gap-4 mt-1">
+                        <div className="ml-18 flex items-center flex-wrap gap-4 mt-1">
                           <h4 className="text-3xl font-bold" style={{ color: '#2563eb' }}>{job.jobPosition}</h4>
                           <span className="border px-4 py-1 rounded-full text-sm font-bold tracking-widest uppercase" style={{ backgroundColor: '#dbeafe', borderColor: '#bfdbfe', color: '#1e40af' }}>
                             {job.jobType}
@@ -2314,18 +2323,18 @@ const PersonalRoom = () => {
                           </div>
                           <h3 className="text-xl font-bold uppercase tracking-widest" style={{ color: '#111827' }}>Maelezo ya Kazi</h3>
                         </div>
-                        <p className="text-lg leading-relaxed whitespace-pre-line break-words text-justify ml-[56px] pr-4" style={{ color: '#374151' }}>{job.description}</p>
+                        <p className="text-lg leading-relaxed whitespace-pre-line wrap-break-word text-justify ml-14 pr-4" style={{ color: '#374151' }}>{job.description}</p>
                       </div>
 
                       {/* F: Vigezo na Sifa */}
-                      <div className="mb-6">
+                      <div className="mb-6 ml-14">
                         <div className="flex items-center gap-4 mb-4">
                           <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: '#dcfce7', color: '#16a34a' }}>
                             <Check size={20} />
                           </div>
                           <h3 className="text-xl font-bold uppercase tracking-widest" style={{ color: '#111827' }}>Vigezo na Sifa</h3>
                         </div>
-                        <ul className="grid grid-cols-1 gap-3 ml-[56px]">
+                        <ul className="grid grid-cols-1 gap-3">
                           {job.qualifications.map((q, index) => (
                             <li key={index} className="flex items-start gap-4 text-lg" style={{ color: '#374151' }}>
                               <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-1" style={{ backgroundColor: '#dbeafe', color: '#2563eb' }}>
@@ -2341,8 +2350,8 @@ const PersonalRoom = () => {
                     {/* FOOTER SECTION - Imebadilishwa kutumia mt-auto kuepuka kuingiliana na content ndefu */}
                     <div className="mt-auto relative w-full z-20 flex flex-col">
                       {/* F: Mwisho wa Maombi (Bango la Orange) */}
-                      <div className="w-full h-[150px] flex items-end relative">
-                        <div className="w-[45%] h-[120px] rounded-tr-[4rem] flex items-center px-8 relative z-20" style={{ background: 'linear-gradient(to right, #f97316, #ef4444)' }}>
+                      <div className="w-full h-37.5 flex items-end relative">
+                        <div className="w-[45%] h-30 rounded-tr-[4rem] flex items-center px-8 relative z-20" style={{ background: 'linear-gradient(to right, #f97316, #ef4444)' }}>
                           <div style={{ color: '#ffffff' }}>
                             <p className="text-sm uppercase tracking-widest font-bold opacity-90 mb-1 flex items-center gap-2"><Calendar size={18}/> Mwisho wa Maombi</p>
                             <p className="text-xl sm:text-2xl font-black">{new Date(job.deadline).toLocaleDateString('sw-TZ', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
@@ -2350,7 +2359,7 @@ const PersonalRoom = () => {
                         </div>
 
                         {/* G: Mawasiliano na Anuani (Bango la Chini - Brand Color) */}
-                        <div className="absolute bottom-0 right-0 w-[70%] h-[140px] rounded-tl-[4rem] flex flex-col justify-center items-end pr-10 pl-28 z-10" style={{ backgroundColor: '#1f2937' }}>
+                        <div className="absolute bottom-0 right-0 w-[70%] h-35 rounded-tl-[4rem] flex flex-col justify-center items-end pr-10 pl-28 z-10" style={{ backgroundColor: '#1f2937' }}>
                           <div className="flex flex-row justify-end items-start gap-6 w-full" style={{ color: '#ffffff' }}>
                             {/* Mawasiliano */}
                             <div className="flex flex-col items-end text-right mt-1 shrink-0">
@@ -2359,7 +2368,7 @@ const PersonalRoom = () => {
                             </div>
                             
                             {/* Anuani block */}
-                            <div className="flex flex-col items-start text-left border-l-2 pl-5 max-w-[240px]" style={{ borderLeftColor: 'rgba(75, 85, 99, 0.5)' }}>
+                            <div className="flex flex-col items-start text-left border-l-2 pl-5 max-w-60" style={{ borderLeftColor: 'rgba(75, 85, 99, 0.5)' }}>
                               <p className="text-[10px] uppercase tracking-widest font-bold mb-1.5 flex items-center gap-1" style={{ color: '#9ca3af' }}>
                                 <MapPin size={12} style={{ color: '#fb923c' }} /> Anuani Rasmi
                               </p>
@@ -2380,7 +2389,7 @@ const PersonalRoom = () => {
                       </div>
 
                     {/* H: UYAO Footer & Maelezo ya Kuomba */}
-                    <div className="w-full h-[100px] border-t-4 flex flex-col items-center justify-center relative z-30" style={{ backgroundColor: '#ffffff', borderTopColor: '#f3f4f6' }}>
+                    <div className="w-full h-25 border-t-4 flex flex-col items-center justify-center relative z-30" style={{ backgroundColor: '#ffffff', borderTopColor: '#f3f4f6' }}>
                       <p className="font-bold text-lg mb-2 flex items-center gap-2" style={{ color: '#1f2937' }}>
                         Tafadhali tumia kitufe cha <span className="px-3 py-1 rounded-full flex items-center gap-1 text-sm" style={{ backgroundColor: '#2563eb', color: '#ffffff' }}><MousePointerClick size={16}/> Apply Now</span> kutuma maombi.
                       </p>
@@ -2397,7 +2406,7 @@ const PersonalRoom = () => {
                 <div key={job.id} className="flex flex-col gap-4 w-full max-w-4xl mx-auto rounded-3xl border border-gray-800 bg-gray-900/50 backdrop-blur-sm p-3 sm:p-8 shadow-2xl overflow-hidden">
                   {JobPoster}
                   <div className="flex flex-col sm:flex-row gap-4 mt-2">
-                    <button onClick={() => handleDownloadJobAsPDF(job.id, job.jobPosition, job.companyName)} disabled={isDownloading === job.id} className="flex-1 px-4 sm:px-6 py-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 font-black text-white transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:-translate-y-1 disabled:hover:translate-y-0 flex items-center justify-center gap-2 sm:gap-3 border border-emerald-400/50 group disabled:opacity-50 disabled:cursor-wait">
+                    <button onClick={() => handleDownloadJobAsPDF(job.id, job.jobPosition, job.companyName)} disabled={isDownloading === job.id} className="flex-1 px-4 sm:px-6 py-4 rounded-xl bg-linear-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 font-black text-white transition-all shadow-[0_0_20px_rgba(16,185,129,0.4)] hover:shadow-[0_0_25px_rgba(16,185,129,0.6)] hover:-translate-y-1 disabled:hover:translate-y-0 flex items-center justify-center gap-2 sm:gap-3 border border-emerald-400/50 group disabled:opacity-50 disabled:cursor-wait">
                       <span className="bg-white/20 p-2 rounded-full group-hover:scale-110 transition-transform">
                         <FileText size={20} className="text-white" />
                       </span>
@@ -2424,7 +2433,7 @@ const PersonalRoom = () => {
                         });
                       }} 
                       disabled={hasApplied}
-                      className={`flex-1 px-4 sm:px-6 py-4 rounded-xl font-black text-white transition-all flex items-center justify-center gap-2 sm:gap-3 border group ${hasApplied ? 'bg-gray-700 border-gray-600 cursor-not-allowed text-gray-300' : 'bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)] hover:-translate-y-1 border-blue-400/50'}`}
+                      className={`flex-1 px-4 sm:px-6 py-4 rounded-xl font-black text-white transition-all flex items-center justify-center gap-2 sm:gap-3 border group ${hasApplied ? 'bg-gray-700 border-gray-600 cursor-not-allowed text-gray-300' : 'bg-liner-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-[0_0_20px_rgba(37,99,235,0.4)] hover:shadow-[0_0_25px_rgba(37,99,235,0.6)] hover:-translate-y-1 border-blue-400/50'}`}
                     >
                       <span className="bg-white/20 p-2 rounded-full group-hover:scale-110 transition-transform">
                          {hasApplied ? <Check size={20} className="text-green-400" /> : <Send size={20} className="text-white" />}
@@ -2440,7 +2449,7 @@ const PersonalRoom = () => {
 
         {/* Modal ya Ku-Apply Kazi */}
         {applyingJob && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4">
             <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-dark-1 p-6 shadow-2xl scrollbar-hide">
               <button 
                 onClick={closeApplicationModal}
@@ -2692,7 +2701,7 @@ const PersonalRoom = () => {
                           <div className={`bg-white text-black rounded-lg overflow-hidden border ${step5Errors.body ? 'border-red-500' : 'border-gray-300'}`}>
                             <ReactQuill theme="snow" value={coverLetter} onChange={(val) => { setCoverLetter(val); setStep5Errors(prev => ({...prev, body: ''})); }} className="h-48 mb-12" placeholder="Write your cover letter here..." />
                           </div>
-                          {step5Errors.body && <span className="text-red-500 text-xs font-bold mt-[-25px] ml-2 z-10 relative">{step5Errors.body}</span>}
+                          {step5Errors.body && <span className="text-red-500 text-xs font-bold -mt-6.25 ml-2 z-10 relative">{step5Errors.body}</span>}
                         </div>
                       </div>
 
@@ -2813,11 +2822,11 @@ const PersonalRoom = () => {
                         </div>
                       </div>
                       
-                      <div className="text-justify mb-10 text-base break-words ql-editor px-0 py-0" dangerouslySetInnerHTML={{ __html: coverLetter }} />
+                      <div className="text-justify mb-10 text-base wrap-break-words ql-editor px-0 py-0" dangerouslySetInnerHTML={{ __html: coverLetter }} />
                       
                       <div className="flex flex-col items-center justify-center text-center mt-12">
                          <p className="mb-4 text-lg">Wako Mtiifu, / Sincerely,</p>
-                         <div className="border-b border-black pb-1 mb-2 px-8 inline-block min-w-[200px]">
+                         <div className="border-b border-black pb-1 mb-2 px-8 inline-block min-w-50">
                            {signatureDataUrl ? (
                              <img src={signatureDataUrl} alt="Signature" className="h-20 object-contain mx-auto" />
                            ) : (
@@ -2898,7 +2907,7 @@ const PersonalRoom = () => {
                           {job.logoUrl ? (
                               <img src={job.logoUrl} alt="logo" className="w-16 h-16 rounded-lg object-cover border border-gray-600 bg-gray-800" />
                           ) : (
-                              <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center flex-shrink-0">
+                              <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center shrink-0">
                                   <Briefcase size={32} className="text-gray-400"/>
                               </div>
                           )}
@@ -2916,7 +2925,7 @@ const PersonalRoom = () => {
 
                       {/* Right side: Actions & Stats */}
                       <div className="flex w-full sm:w-auto flex-row sm:flex-col items-stretch sm:items-end gap-4">
-                          <div className="flex flex-grow sm:flex-grow-0 sm:flex-col gap-2 w-full">
+                          <div className="flex grow sm:grow-0 sm:flex-col gap-2 w-full">
                               <button 
                                   onClick={() => { setEditingJob(job); setActiveView('post_job_form'); }}
                                   className="flex-1 sm:w-full px-4 py-2 rounded-lg bg-yellow-600 hover:bg-yellow-700 font-semibold text-white transition-colors text-center"
@@ -3076,7 +3085,7 @@ const PersonalRoom = () => {
 
         {/* Modal ya Kusoma CV iliyoandaliwa */}
         {viewingCvApp && (
-          <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 p-4">
+          <div className="fixed inset-0 z-9998 flex items-center justify-center bg-black/70 p-4">
             <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-800 p-8 shadow-2xl">
               <button onClick={() => setViewingCvApp(null)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
               <h2 className="mb-6 text-2xl font-bold text-white">CV: {viewingCvApp.applicantName}</h2>
@@ -3188,7 +3197,7 @@ const PersonalRoom = () => {
                        {/* Sign-off, Signature, and Name */}
                        <div className="mt-12 flex flex-col items-center justify-center text-center">
                           <p style={{ marginBottom: '16px' }}>Wako Mtiifu, / Sincerely,</p>
-                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-[200px]" style={{ borderColor: '#000000' }}>
+                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-50" style={{ borderColor: '#000000' }}>
                             {app.signatureUrl ? (
                                <img src={app.signatureUrl} alt="Signature" className="h-20 object-contain mx-auto" crossOrigin="anonymous" />
                             ) : (
@@ -3241,7 +3250,7 @@ const PersonalRoom = () => {
                        {/* Sign-off, Signature, and Name */}
                        <div className="mt-12 flex flex-col items-center justify-center text-center">
                           <p style={{ marginBottom: '16px' }}>Wako Mtiifu, / Sincerely,</p>
-                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-[200px]" style={{ borderColor: '#000000' }}>
+                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-50" style={{ borderColor: '#000000' }}>
                             {app.signatureUrl ? (
                                <img src={app.signatureUrl} alt="Signature" className="h-20 object-contain mx-auto" crossOrigin="anonymous" />
                             ) : (
@@ -3269,7 +3278,7 @@ const PersonalRoom = () => {
         >
           <div className="flex flex-col gap-4">
             <div className='flex flex-col gap-2.5'>
-              <label className='text-base text-normal leading-[22px] text-gray-300'>Interview Description</label>
+              <label className='text-base text-normal leading-5.5 text-gray-300'>Interview Description</label>
               <Textarea
                 className='border-none bg-gray-800 text-white focus-visible:ring-0 focus-visible:ring-offset-0'
                 value={interviewValues.description}
@@ -3277,7 +3286,7 @@ const PersonalRoom = () => {
               />
             </div>
             <div className='flex w-full flex-col gap-2.5'>
-              <label className='text-base text-normal leading-[22px] text-gray-300'>Select Date and Time</label>
+              <label className='text-base text-normal leading-5.5 text-gray-300'>Select Date and Time</label>
               <ReactDatePicker
                 selected={interviewValues.dateTime}
                 onChange={(date) => setInterviewValues({ ...interviewValues, dateTime: date! })}
@@ -3290,7 +3299,7 @@ const PersonalRoom = () => {
               />
             </div>
             <div className='flex w-full flex-col gap-2.5'>
-              <label className='text-base text-normal leading-[22px] text-gray-300'>Interview Duration (minutes)</label>
+              <label className='text-base text-normal leading-5.5 text-gray-300'>Interview Duration (minutes)</label>
               <input
                   type="number"
                   value={interviewValues.duration}
@@ -3544,7 +3553,7 @@ const PersonalRoom = () => {
 
         {/* Modal ya Kusoma CV iliyoandaliwa */}
         {viewingCvApp && (
-          <div className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/70 p-4">
+          <div className="fixed inset-0 z-9998 flex items-center justify-center bg-black/70 p-4">
             <div className="relative w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-2xl border border-gray-700 bg-gray-800 p-8 shadow-2xl">
               <button onClick={() => setViewingCvApp(null)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
               <h2 className="mb-6 text-2xl font-bold text-white">CV: {viewingCvApp.applicantName}</h2>
@@ -3654,7 +3663,7 @@ const PersonalRoom = () => {
 
                        <div className="mt-12 flex flex-col items-center justify-center text-center">
                           <p style={{ marginBottom: '16px' }}>Wako Mtiifu, / Sincerely,</p>
-                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-[200px]" style={{ borderColor: '#000000' }}>
+                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-50" style={{ borderColor: '#000000' }}>
                             {app.signatureUrl ? (
                                <img src={app.signatureUrl} alt="Signature" className="h-20 object-contain mx-auto" crossOrigin="anonymous" />
                             ) : (
@@ -3704,7 +3713,7 @@ const PersonalRoom = () => {
                        <div className="text-justify mb-10 ql-editor px-0 py-0" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }} dangerouslySetInnerHTML={{ __html: app.coverLetter }} />
                        <div className="mt-12 flex flex-col items-center justify-center text-center">
                           <p style={{ marginBottom: '16px' }}>Wako Mtiifu, / Sincerely,</p>
-                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-[200px]" style={{ borderColor: '#000000' }}>
+                          <div className="border-b pb-1 mb-2 px-8 inline-block min-w-50" style={{ borderColor: '#000000' }}>
                             {app.signatureUrl ? (
                                <img src={app.signatureUrl} alt="Signature" className="h-20 object-contain mx-auto" crossOrigin="anonymous" />
                             ) : (
@@ -3723,7 +3732,7 @@ const PersonalRoom = () => {
 
       {/* Mpya: Cancel Interview Modal */}
       {isCancelingInterview && cancelingApplication && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4">
           <div className="relative w-full max-w-md overflow-y-auto rounded-2xl border border-gray-700 bg-dark-1 p-6 shadow-2xl scrollbar-hide">
             <button onClick={() => setIsCancelingInterview(false)} className="absolute right-4 top-4 text-gray-400 hover:text-white transition-colors"><X size={24} /></button>
             <h2 className="mb-2 text-2xl font-bold text-white">Cancel / Reschedule Interview</h2>
@@ -3864,7 +3873,7 @@ const PersonalRoom = () => {
 
           // Tuma Risiti (SMS, Email Mteja, Email UYAO)
           try {
-            const res = await fetch('/api/send-receipt', {
+        const res = await fetch('/api/send-receipt', { // BORESHO: Tumia endpoint salama
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -3879,7 +3888,9 @@ const PersonalRoom = () => {
               })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Imeshindwa kutuma risiti');
+        if (!res.ok) {
+          throw new Error(data.error || 'Imeshindwa kutuma risiti');
+        }
           } catch (error: any) {
             console.error(error);
             toast.error(`Risiti Imefeli: ${error.message}`);
@@ -3937,7 +3948,7 @@ const PersonalRoom = () => {
                     </p>
                     <div className="mt-3 bg-gray-900/80 p-4 rounded-xl border border-gray-700/50">
                       <span className="font-semibold text-white block mb-2">Reason Logged:</span>
-                      <p className="text-sm text-gray-300 whitespace-pre-wrap break-words leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{app.cancelReason || app.rescheduleReason || 'N/A'}</p>
+                      <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-words leading-relaxed" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere' }}>{app.cancelReason || app.rescheduleReason || 'N/A'}</p>
                     </div>
                   </div>
                     <div className="flex flex-col items-start md:items-end justify-start shrink-0">
@@ -3993,7 +4004,7 @@ const PersonalRoom = () => {
               alt="Management Slide" 
               className="w-full h-full object-cover transition-transform duration-700 transform group-hover:scale-105" 
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-transparent flex flex-col justify-center px-6 md:px-10">
+            <div className="absolute inset-0 bg-linear-to-r from-black/80 via-black/50 to-transparent flex flex-col justify-center px-6 md:px-10">
               <h2 className="text-2xl md:text-4xl font-black text-white mb-2 max-w-xl leading-tight drop-shadow-lg">{MANAGEMENT_SLIDES[currentSlide].title}</h2>
               <p className="text-sm md:text-lg text-gray-200 max-w-lg drop-shadow-md line-clamp-2">{MANAGEMENT_SLIDES[currentSlide].desc}</p>
             </div>
@@ -4089,7 +4100,7 @@ const PersonalRoom = () => {
 
           {/* Modal ya Kuongeza Mfanyakazi (Direct Hire) */}
           {isAddingEmployee && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+            <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4">
               <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
                 <button onClick={() => setIsAddingEmployee(false)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
                 <h2 className="mb-4 text-xl font-bold text-white">Sajili Mfanyakazi Mpya</h2>
@@ -4185,7 +4196,7 @@ const PersonalRoom = () => {
 
         {/* Search & Filter Bar */}
         <div className="flex flex-col lg:flex-row gap-4 w-full bg-gray-800/40 p-4 rounded-xl border border-gray-700 shadow-inner">
-          <div className="relative flex-grow">
+          <div className="grow">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
             <input 
               type="text" 
@@ -4195,7 +4206,7 @@ const PersonalRoom = () => {
               className="w-full rounded-lg bg-gray-900 py-2.5 pl-10 pr-4 text-white text-sm border border-gray-700 focus:border-blue-500 focus:outline-none"
             />
           </div>
-          <div className="flex flex-col sm:flex-row gap-4 flex-shrink-0 w-full lg:w-auto">
+          <div className="flex flex-col sm:flex-row gap-4 shrink-0 w-full lg:w-auto">
             <div className="relative w-full sm:w-auto">
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <select 
@@ -4226,7 +4237,7 @@ const PersonalRoom = () => {
         {/* The List Structure */}
         <div className="w-full overflow-x-auto bg-[#1a1f2e] rounded-xl border border-gray-700 shadow-xl">
           {/* Table Header */}
-          <div className="grid grid-cols-[40px_minmax(250px,2fr)_140px_minmax(180px,1.5fr)_120px_100px] gap-4 p-5 border-b border-gray-700 text-sm font-bold text-gray-400 uppercase tracking-wider min-w-[900px] bg-gray-800/50">
+          <div className="grid grid-cols-[40px_minmax(250px,2fr)_140px_minmax(180px,1.5fr)_120px_100px] gap-4 p-5 border-b border-gray-700 text-sm font-bold text-gray-400 uppercase tracking-wider min-w-225 bg-gray-800/50">
             <div className="flex items-center justify-center">
               <input type="checkbox" onChange={handleSelectAll} checked={selectedEmps.size === filteredEmps.length && filteredEmps.length > 0} className="w-4 h-4 rounded border-gray-600 bg-gray-700 cursor-pointer" />
             </div>
@@ -4238,7 +4249,7 @@ const PersonalRoom = () => {
           </div>
 
           {/* Table Rows */}
-          <div className="flex flex-col min-w-[900px]">
+          <div className="flex flex-col min-w-225">
             {filteredEmps.length === 0 ? (
               <div className="p-8 text-center text-gray-400">No employees found.</div>
             ) : (
@@ -4323,7 +4334,7 @@ const PersonalRoom = () => {
 
         {/* Modal ya Kuongeza Mfanyakazi (Direct Hire) */}
         {isAddingEmployee && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4">
             <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
               <button onClick={() => setIsAddingEmployee(false)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
               <h2 className="mb-4 text-xl font-bold text-white">Sajili Mfanyakazi Mpya</h2>
@@ -4365,7 +4376,7 @@ const PersonalRoom = () => {
 
         {/* Modal ya Ku-Edit Employee */}
         {editingEmployee && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4">
+          <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/70 p-4">
             <div className="relative w-full max-w-md rounded-2xl border border-gray-700 bg-gray-800 p-6 shadow-2xl">
               <button onClick={() => setEditingEmployee(null)} className="absolute right-4 top-4 text-gray-400 hover:text-white"><X size={24} /></button>
               <h2 className="mb-4 text-xl font-bold text-white">Edit Employee Info</h2>
@@ -4501,7 +4512,7 @@ const PersonalRoom = () => {
                  {staffMeetingAttendees.size === myEmployees.length ? 'Deselect All' : 'Select All'}
                </button>
              </div>
-             <div className="flex-1 overflow-y-auto max-h-[300px] scrollbar-thin pr-2 flex flex-col gap-2">
+             <div className="flex-1 overflow-y-auto max-h-75 scrollbar-thin pr-2 flex flex-col gap-2">
                {myEmployees.length === 0 ? (
                   <p className="text-sm text-gray-400 text-center py-4">Huna wafanyakazi kwenye mfumo kwa sasa.</p>
                ) : (
@@ -4525,7 +4536,7 @@ const PersonalRoom = () => {
              <button 
                onClick={handleScheduleStaffMeeting}
                disabled={isSchedulingStaffMeeting}
-               className="w-full mt-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+               className="w-full mt-2 bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-3 rounded-xl shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
              >
                {isSchedulingStaffMeeting ? 'Inatuma Mialiko...' : <><Send size={18} /> Tuma Mialiko (Schedule)</>}
              </button>
@@ -4577,7 +4588,7 @@ const PersonalRoom = () => {
 
         {/* Attendance (Mahudhurio) */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-gradient-to-br from-blue-900/40 to-blue-800/20 p-6 rounded-2xl border border-blue-500/30 shadow-lg flex flex-col items-center justify-center text-center gap-4">
+          <div className="bg-linear-to-br from-blue-900/40 to-blue-800/20 p-6 rounded-2xl border border-blue-500/30 shadow-lg flex flex-col items-center justify-center text-center gap-4">
             <h2 className="text-lg font-bold text-gray-200">Muda wa Sasa (Current Time)</h2>
             <div className="text-4xl font-black text-blue-400 tracking-wider">
               {currentTime.toLocaleTimeString('sw-TZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
@@ -4621,7 +4632,7 @@ const PersonalRoom = () => {
             <h2 className="text-lg font-bold text-gray-200 border-b border-gray-700 pb-2 flex items-center gap-2">
               <Bell size={18} className="text-yellow-400" /> Arifa Mpya (Notifications)
             </h2>
-            <div className="flex flex-col gap-3 overflow-y-auto max-h-[160px] pr-2 scrollbar-thin">
+            <div className="flex flex-col gap-3 overflow-y-auto max-h-40 pr-2 scrollbar-thin">
               <div className="bg-gray-900/50 p-3 rounded-lg border border-gray-700/50 flex items-start gap-3">
                 <div className="mt-0.5 w-2 h-2 rounded-full bg-blue-500 shrink-0"></div>
                 <div>
@@ -4767,7 +4778,7 @@ const PersonalRoom = () => {
                 {myDisciplinaryCase.wsodUploaded && <span className="text-[10px] uppercase font-bold bg-green-500/20 text-green-400 px-2 py-1 rounded shadow-sm">✅ Umewasilisha</span>}
               </div>
               <p className="text-xs text-gray-400">Andika utetezi wako (Written Statement of Defence) hapa chini au pakia faili (PDF/Doc).</p>
-              <Textarea placeholder="[ Andika Utetezi Hapa... ]" className="bg-gray-900 border-gray-700 text-white min-h-[120px] focus:border-blue-500" disabled={myDisciplinaryCase.step !== 3 || myDisciplinaryCase.wsodUploaded} />
+              <Textarea placeholder="[ Andika Utetezi Hapa... ]" className="bg-gray-900 border-gray-700 text-white min-w-20 focus:border-blue-500" disabled={myDisciplinaryCase.step !== 3 || myDisciplinaryCase.wsodUploaded} />
               <div className="flex flex-col gap-2">
                 <label className="text-xs font-medium text-gray-400">[ Pakia Kiambatisho (PDF/Doc) ]</label>
                 <input type="file" accept=".pdf,.doc,.docx" className="w-full rounded-lg bg-gray-900 px-4 py-2 text-white border border-gray-700 text-sm" disabled={myDisciplinaryCase.step !== 3 || myDisciplinaryCase.wsodUploaded} />
@@ -4794,7 +4805,7 @@ const PersonalRoom = () => {
               {myDisciplinaryCase.step === 4 ? (
                 <div className="bg-blue-900/20 p-4 rounded-xl border border-blue-500/30 text-center flex flex-col gap-2">
                   <p className="text-sm text-gray-300">Tarehe: <span className="font-bold text-white">10/04/2026</span> | Saa: <span className="font-bold text-white">04:00 Asubuhi</span></p>
-                  <button className="mt-2 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg flex justify-center items-center gap-2">
+                  <button className="mt-2 w-full py-3 bg-linear-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold rounded-xl transition-all shadow-lg flex justify-center items-center gap-2">
                     <Calendar size={18} /> [ JIUNGE NA KIKAO (ONLINE) ]
                   </button>
                   <p className="text-[10px] text-gray-400 mt-1">Kitufe kitakuwa 'active' dakika 10 kabla ya kikao.</p>
@@ -4889,7 +4900,7 @@ const PersonalRoom = () => {
                  <div className="w-full bg-gray-900 rounded-full h-1.5 mt-2">
                    <div className={`h-1.5 rounded-full ${c.step > 5 ? 'bg-green-500' : 'bg-orange-500'}`} style={{ width: `${Math.min((c.step / 5) * 100, 100)}%` }}></div>
                  </div>
-                 <p className="text-[10px] text-gray-500 text-right mt-[-8px]">Last updated: {new Date(c.updatedAt).toLocaleDateString()}</p>
+                 <p className="text-[10px] text-gray-500 text-right mt-2">Last updated: {new Date(c.updatedAt).toLocaleDateString()}</p>
                </div>
              ))
            )}
@@ -4972,9 +4983,9 @@ const PersonalRoom = () => {
 
          {/* Timeline Tracker */}
          <div className="bg-gray-800/40 p-6 rounded-2xl border border-gray-700 shadow-lg relative overflow-x-auto">
-            <div className="flex items-center justify-between relative z-10 min-w-[600px] px-4">
-              <div className="absolute left-10 right-10 top-[20px] h-1 bg-gray-700 -z-10"></div>
-              <div className="absolute left-10 top-[20px] h-1 bg-green-500 -z-10 transition-all" style={{ width: `calc(${(Math.min(activeCase.step - 1, 4) / 4) * 100}% - 40px)` }}></div>
+            <div className="flex items-center justify-between relative z-10 min-w-150 px-4">
+              <div className="absolute left-10 right-10 top-5 h-1 bg-gray-700 -z-10"></div>
+              <div className="absolute left-10 top-5 h-1 bg-green-500 -z-10 transition-all" style={{ width: `calc(${(Math.min(activeCase.step - 1, 4) / 4) * 100}% - 40px)` }}></div>
               
               {steps.map(step => {
                  const isCompleted = activeCase.step > step.num;
@@ -4984,7 +4995,7 @@ const PersonalRoom = () => {
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-gray-800 ${isCompleted ? 'bg-green-500 text-white' : isCurrent ? 'bg-yellow-500 text-white shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-gray-600 text-gray-400'}`}>
                          {isCompleted ? <Check size={18} /> : <span className="font-bold text-sm">{step.num}</span>}
                       </div>
-                      <span className={`text-[10px] sm:text-xs font-bold text-center max-w-[80px] ${isCompleted ? 'text-green-400' : isCurrent ? 'text-yellow-400' : 'text-gray-500'}`}>{step.title}</span>
+                      <span className={`text-[10px] sm:text-xs font-bold text-center max-w-20 ${isCompleted ? 'text-green-400' : isCurrent ? 'text-yellow-400' : 'text-gray-500'}`}>{step.title}</span>
                    </div>
                  )
               })}
@@ -5235,7 +5246,7 @@ const PersonalRoom = () => {
                </div>
 
                {/* Incapacity */}
-               <div className="bg-gray-800/40 border border-orange-500/30 p-6 rounded-2xl hover:border-orange-500 transition-all flex flex-col gap-4 shadow-lg relative">
+               <div className="bg-gray-800/40 border border-orange-500/30 p-6 rounded-2xl hover:border-orange-500 transition-all flex flex-col gap-4 shadow-lg">
                  <div className="flex items-center gap-3 border-b border-gray-700/50 pb-3">
                    <div className="p-3 bg-orange-500/20 text-orange-400 rounded-xl"><TrendingDown size={24}/></div>
                    <h3 className="font-bold text-white text-lg uppercase tracking-wider">Incapacity</h3>
@@ -5259,7 +5270,7 @@ const PersonalRoom = () => {
                </div>
 
                {/* Operational Requirements */}
-               <div className="bg-gray-800/40 border border-orange-500/30 p-6 rounded-2xl hover:border-orange-500 transition-all flex flex-col gap-4 shadow-lg relative">
+               <div className="bg-gray-800/40 border border-orange-500/30 p-6 rounded-2xl hover:border-orange-500 transition-all flex flex-col gap-4 shadow-lg">
                  <div className="flex items-center gap-3 border-b border-gray-700/50 pb-3">
                    <div className="p-3 bg-orange-500/20 text-orange-400 rounded-xl"><Briefcase size={24}/></div>
                    <h3 className="font-bold text-white text-lg uppercase tracking-wider leading-tight">Operational Requirements</h3>
@@ -5393,7 +5404,7 @@ const PersonalRoom = () => {
                 
                 <div className="flex flex-col gap-4 relative">
                   {/* Line in the background */}
-                  <div className="absolute left-[27px] top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
+                  <div className="absolute left-6.75 top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
 
                   {/* Step 1: Offer Generation */}
                   <div className={`flex items-start gap-5 p-4 rounded-xl transition-all ${msaStep === 1 ? 'bg-gray-800/80 border border-blue-500/50 shadow-md' : ''}`}>
@@ -5445,8 +5456,8 @@ const PersonalRoom = () => {
                     <div className="flex-1 pt-1">
                       <h3 className={`font-bold text-lg ${msaStep >= 4 ? 'text-white' : 'text-gray-500'}`}>4. Signing & Execution</h3>
                       <p className="text-sm text-gray-400 mt-1">Pande zote zinasaini mkataba rasmi kufunga mchakato.</p>
-                      {msaStep === 4 && (
-                        <button onClick={() => { setMsaStep(5); toast.success("MSA Imekamilika kikamilifu!"); }} className="mt-3 px-5 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-sm transition-colors shadow-lg">Finalize & Execute Separation</button>
+                        {msaStep === 4 && (
+                          <button onClick={() => { setMsaStep(5); toast.success("MSA Imekamilika kikamilifu!"); }} className="mt-3 px-5 py-2.5 bg-linear-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold rounded-lg text-sm transition-colors shadow-lg">Finalize & Execute Separation</button>
                       )}
                       {msaStep > 4 && (
                         <p className="text-sm text-green-400 font-bold mt-2 flex items-center gap-1"><CheckCircle2 size={16}/> Mchakato Umekamilika</p>
@@ -5549,7 +5560,7 @@ const PersonalRoom = () => {
                 
                 <div className="flex flex-col gap-4 relative">
                   {/* Line in the background */}
-                  <div className="absolute left-[27px] top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
+                  <div className="absolute left-6.75 top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
 
                   {/* Step 1: Issue End of Contract Notice */}
                   <div className={`flex items-start gap-5 p-4 rounded-xl transition-all ${autoTermStep === 1 ? 'bg-gray-800/80 border border-yellow-500/50 shadow-md' : ''}`}>
@@ -5707,7 +5718,7 @@ const PersonalRoom = () => {
                 </h2>
                 
                 <div className="flex flex-col gap-4 relative">
-                  <div className="absolute left-[27px] top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
+                  <div className="absolute left-6.75 top-6 bottom-10 w-0.5 bg-gray-700 -z-10"></div>
 
                   {/* Step 1: Notice Received & Logged */}
                   <div className={`flex items-start gap-5 p-4 rounded-xl transition-all ${resignationStep === 1 ? 'bg-gray-800/80 border border-cyan-500/50 shadow-md' : ''}`}>
@@ -5891,7 +5902,7 @@ const PersonalRoom = () => {
           {/* Katikati: Application & Pipeline */}
           <div className="lg:col-span-2 flex flex-col gap-6">
             {/* Action Button */}
-            <div className="bg-gradient-to-r from-emerald-900/40 to-emerald-800/20 border border-emerald-500/30 p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="bg-linear-to-r from-emerald-900/40 to-emerald-800/20 border border-emerald-500/30 p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                <div>
                  <h2 className="text-xl font-bold text-white">Need time off?</h2>
                  <p className="text-sm text-gray-300 mt-1">Submit your leave request for approval.</p>
@@ -6121,7 +6132,7 @@ const PersonalRoom = () => {
                 ))}
               </div>
               
-              <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-[250px] pr-2 scrollbar-thin">
+              <div className="flex flex-col gap-3 mt-2 overflow-y-auto max-h-62.5 pr-2 scrollbar-thin">
                 {[
                   { month: 'March 2026', gross: '1,500,000', net: '1,150,000', status: 'Paid' },
                   { month: 'February 2026', gross: '1,500,000', net: '1,150,000', status: 'Paid' },
@@ -6218,11 +6229,11 @@ const PersonalRoom = () => {
 
             <div className="my-6 h-px bg-gray-700" />
 
-            <div className="flex-grow">
+            <div className="grow">
               <ul className="space-y-3">
                 {plan.benefits.map((benefit, index) => (
                   <li key={index} className="flex items-center gap-3">
-                    <Check size={18} className="text-green-500 flex-shrink-0" />
+                    <Check size={18} className="text-green-500 shrink-0" />
                     <span className="text-sm text-gray-200">{benefit}</span>
                   </li>
                 ))}
